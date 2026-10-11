@@ -69,7 +69,15 @@ router.post('/', authenticate, async (req, res) => {
       submitted_at: new Date().toISOString()
     };
 
+    let liveResult = false;
+    let examTitle = '';
     if (db.isPostgres()) {
+      const eRes = await db.query('SELECT title, live_result FROM exams WHERE id = $1', [Number(examId)]);
+      if (eRes.rows.length > 0) {
+        liveResult = Boolean(eRes.rows[0].live_result);
+        examTitle = eRes.rows[0].title;
+      }
+
       const q = `
         INSERT INTO exam_submissions (exam_id, user_id, answers, score, total_questions, percentage, passed, violations_count, auto_submitted, status, submitted_at)
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'submitted', NOW())
@@ -88,15 +96,33 @@ router.post('/', authenticate, async (req, res) => {
         examId, userId, JSON.stringify(answers), correctCount, totalQuestions,
         percentage, passed, violationsCount, autoSubmitted
       ]);
-      return res.status(201).json(rows[0]);
+      return res.status(201).json({
+        ...rows[0],
+        live_result: liveResult,
+        liveResult,
+        exam_title: examTitle
+      });
     }
+
+    const ex = (db.store.exams || []).find(e => e.id === Number(examId));
+    if (ex) {
+      liveResult = Boolean(ex.live_result || ex.liveResult);
+      examTitle = ex.title;
+    }
+
+    const fullSubmissionData = {
+      ...submissionData,
+      live_result: liveResult,
+      liveResult,
+      exam_title: examTitle
+    };
 
     // Save in local store
     db.store.submissions = db.store.submissions.filter(s => !(s.exam_id === Number(examId) && s.user_id === userId));
-    db.store.submissions.push(submissionData);
+    db.store.submissions.push(fullSubmissionData);
     saveLocalStore();
 
-    res.status(201).json(submissionData);
+    res.status(201).json(fullSubmissionData);
   } catch (err) {
     console.error('Submission error:', err);
     res.status(500).json({ error: err.message });

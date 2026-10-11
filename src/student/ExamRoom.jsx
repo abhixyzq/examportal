@@ -63,15 +63,26 @@ export default function ExamRoom() {
 
   const handleAutoSubmit = useCallback(async () => {
     setSubmitted(true);
+    let subRes = null;
     try {
-      await api.submitExam({
+      subRes = await api.submitExam({
         examId: currentExam?.id,
         answers,
         autoSubmitted: true,
         violationsCount: 3,
       });
     } catch {}
-    navigate('/student/result', { state: { answers, autoSubmit: true, questions } });
+    const isLive = subRes?.live_result ?? (currentExam?.live_result ?? currentExam?.liveResult ?? false);
+    navigate('/student/result', {
+      state: {
+        answers,
+        autoSubmit: true,
+        questions,
+        exam: currentExam,
+        submission: subRes,
+        liveResult: Boolean(isLive)
+      }
+    });
   }, [answers, currentExam, navigate, questions]);
 
   const handleViolation = useCallback((v) => {
@@ -253,15 +264,25 @@ export default function ExamRoom() {
   };
 
   const handleSubmit = async () => {
+    let subRes = null;
     try {
-      await api.submitExam({
+      subRes = await api.submitExam({
         examId: currentExam?.id,
         answers,
         autoSubmitted: false,
         violationsCount,
       });
     } catch {}
-    navigate('/student/result', { state: { answers, questions } });
+    const isLive = subRes?.live_result ?? (currentExam?.live_result ?? currentExam?.liveResult ?? false);
+    navigate('/student/result', {
+      state: {
+        answers,
+        questions,
+        exam: currentExam,
+        submission: subRes,
+        liveResult: Boolean(isLive)
+      }
+    });
   };
 
   const handleStartWithCodeCheck = async (e) => {

@@ -55,16 +55,24 @@ export default function MyResults() {
               <div>
                 <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>{r.exam_title || r.exam}</div>
                 <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                  {r.submitted_at?.split('T')[0] || r.date} · {r.score}/{r.total_questions || r.total} correct
+                  {r.submitted_at?.split('T')[0] || r.date} · {Boolean(r.live_result) ? `${r.score}/${r.total_questions || r.total} correct` : 'Submitted'}
                 </div>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div style={{ fontWeight: 700, fontSize: 22, color: r.passed ? 'var(--success)' : 'var(--danger)' }}>
-                  {r.percentage || r.score}%
-                </div>
-                <span className={`badge ${r.passed ? 'badge-green' : 'badge-red'}`}>
-                  {r.passed ? 'Passed' : 'Failed'}
-                </span>
+                {Boolean(r.live_result) ? (
+                  <>
+                    <div style={{ fontWeight: 700, fontSize: 22, color: r.passed ? 'var(--success)' : 'var(--danger)' }}>
+                      {r.percentage || r.score}%
+                    </div>
+                    <span className={`badge ${r.passed ? 'badge-green' : 'badge-red'}`}>
+                      {r.passed ? 'Passed' : 'Failed'}
+                    </span>
+                  </>
+                ) : (
+                  <span className="badge badge-yellow" style={{ fontSize: 11.5 }}>
+                    Under Evaluation
+                  </span>
+                )}
               </div>
             </div>
           </div>
