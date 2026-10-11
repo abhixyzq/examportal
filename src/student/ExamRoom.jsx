@@ -75,12 +75,14 @@ export default function ExamRoom() {
     let subRes = null;
     try {
       subRes = await api.submitExam({
-        examId: currentExam?.id,
+        examId: currentExam?.id || Number(id),
         answers,
         autoSubmitted: true,
-        violationsCount: 3,
+        violationsCount: currentExam?.maxViolations || 3,
       });
-    } catch {}
+    } catch (err) {
+      console.error('Auto-submit error:', err);
+    }
     const isLive = subRes?.live_result ?? (currentExam?.live_result ?? currentExam?.liveResult ?? false);
     navigate('/student/result', {
       state: {
@@ -92,7 +94,7 @@ export default function ExamRoom() {
         liveResult: Boolean(isLive)
       }
     });
-  }, [answers, currentExam, navigate, questions]);
+  }, [answers, currentExam, id, navigate, questions]);
 
   const handleViolation = useCallback((v) => {
     try {
@@ -272,16 +274,32 @@ export default function ExamRoom() {
     });
   };
 
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const handleSubmit = async () => {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
     let subRes = null;
     try {
       subRes = await api.submitExam({
-        examId: currentExam?.id,
+        examId: currentExam?.id || Number(id),
         answers,
         autoSubmitted: false,
-        violationsCount,
+        violationsCount: violationCount || 0,
       });
-    } catch {}
+    } catch (err) {
+      console.error('Exam submission error:', err);
+      const errMsg = err?.message || '';
+      if (errMsg.toLowerCase().includes('already submitted')) {
+        alert(errMsg);
+        navigate('/student');
+        return;
+      }
+      alert('Submission failed: ' + (errMsg || 'Please check your internet connection and try again.'));
+      setIsSubmitting(false);
+      return;
+    }
+
     const isLive = subRes?.live_result ?? (currentExam?.live_result ?? currentExam?.liveResult ?? false);
     navigate('/student/result', {
       state: {
@@ -449,8 +467,22 @@ export default function ExamRoom() {
               This action cannot be undone.
             </div>
             <div className="flex gap-2">
-              <button className="btn btn-primary w-full" onClick={handleSubmit}>Submit</button>
-              <button className="btn btn-ghost w-full" onClick={() => setConfirmSubmit(false)}>Go Back</button>
+              <button
+                type="button"
+                className="btn btn-primary w-full"
+                onClick={handleSubmit}
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? 'Submitting...' : 'Submit'}
+              </button>
+              <button
+                type="button"
+                className="btn btn-ghost w-full"
+                onClick={() => setConfirmSubmit(false)}
+                disabled={isSubmitting}
+              >
+                Go Back
+              </button>
             </div>
           </div>
         </div>

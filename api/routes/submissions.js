@@ -15,7 +15,7 @@ router.post('/', authenticate, async (req, res) => {
     if (db.isPostgres()) {
       const existing = await db.query(
         'SELECT id FROM exam_submissions WHERE exam_id = $1 AND user_id = $2',
-        [Number(examId), userId]
+        [Number(examId), Number(userId)]
       );
       if (existing.rows.length > 0) {
         return res.status(403).json({
@@ -80,7 +80,7 @@ router.post('/', authenticate, async (req, res) => {
     const submissionData = {
       id: Date.now(),
       exam_id: Number(examId),
-      user_id: userId,
+      user_id: Number(userId),
       user_name: req.user.name,
       user_email: req.user.email,
       answers,
@@ -88,8 +88,8 @@ router.post('/', authenticate, async (req, res) => {
       total_questions: totalQuestions,
       percentage,
       passed,
-      violations_count: violationsCount,
-      auto_submitted: autoSubmitted,
+      violations_count: Number(violationsCount) || 0,
+      auto_submitted: Boolean(autoSubmitted),
       status: 'submitted',
       submitted_at: new Date().toISOString()
     };
@@ -118,8 +118,8 @@ router.post('/', authenticate, async (req, res) => {
         RETURNING *
       `;
       const { rows } = await db.query(q, [
-        examId, userId, JSON.stringify(answers), correctCount, totalQuestions,
-        percentage, passed, violationsCount, autoSubmitted
+        Number(examId), Number(userId), JSON.stringify(answers), correctCount, totalQuestions,
+        percentage, passed, Number(violationsCount) || 0, Boolean(autoSubmitted)
       ]);
       return res.status(201).json({
         ...rows[0],
@@ -135,7 +135,7 @@ router.post('/', authenticate, async (req, res) => {
       examTitle = ex.title;
     }
 
-    const existingIdx = db.store.submissions.findIndex(s => s.exam_id === Number(examId) && s.user_id === userId);
+    const existingIdx = db.store.submissions.findIndex(s => Number(s.exam_id) === Number(examId) && Number(s.user_id) === Number(userId));
     const fullSubmissionData = {
       ...submissionData,
       live_result: liveResult,
@@ -162,16 +162,20 @@ router.get('/results/:examId', authenticate, async (req, res) => {
     const examId = Number(req.params.examId);
     if (db.isPostgres()) {
       const q = `
-        SELECT s.*, u.name as user_name, u.email as user_email, u.roll_no
+        SELECT s.*,
+               COALESCE(c.name, u.name, 'Candidate') as user_name,
+               COALESCE(c.roll_no, u.roll_no, '') as roll_no,
+               COALESCE(u.email, '') as user_email
         FROM exam_submissions s
-        JOIN users u ON s.user_id = u.id
+        LEFT JOIN candidates c ON s.user_id = c.id
+        LEFT JOIN users u ON s.user_id = u.id
         WHERE s.exam_id = $1
         ORDER BY s.score DESC, s.submitted_at ASC
       `;
       const { rows } = await db.query(q, [examId]);
       return res.json(rows);
     }
-    const results = db.store.submissions.filter(s => s.exam_id === examId);
+    const results = (db.store.submissions || []).filter(s => Number(s.exam_id) === examId);
     res.json(results);
   } catch (err) {
     res.status(500).json({ error: err.message });

@@ -159,17 +159,23 @@ router.get('/results/:examId', authenticate, async (req, res) => {
     let list = [];
     if (db.isPostgres()) {
       const q = `
-        SELECT s.*, u.name, u.email
+        SELECT s.*,
+               COALESCE(c.name, u.name, 'Candidate') as name,
+               COALESCE(c.name, u.name, 'Candidate') as user_name,
+               COALESCE(c.roll_no, u.roll_no, '') as roll_no,
+               COALESCE(u.email, '') as email,
+               COALESCE(u.email, '') as user_email
         FROM exam_submissions s
-        JOIN users u ON s.user_id = u.id
+        LEFT JOIN candidates c ON s.user_id = c.id
+        LEFT JOIN users u ON s.user_id = u.id
         WHERE s.exam_id = $1
         ORDER BY s.percentage DESC, s.submitted_at ASC
       `;
       const { rows } = await db.query(q, [examId]);
       list = rows;
     } else {
-      list = db.store.submissions
-        .filter(s => s.exam_id === examId)
+      list = (db.store.submissions || [])
+        .filter(s => Number(s.exam_id) === examId)
         .sort((a, b) => b.percentage - a.percentage);
     }
 
