@@ -2,29 +2,47 @@ import pg from 'pg';
 
 const { Pool } = pg;
 
-const connectionString = process.env.POSTGRES_URL || process.env.DATABASE_URL;
+function getConnectionString() {
+  if (process.env.POSTGRES_URL) return process.env.POSTGRES_URL;
+  if (process.env.DATABASE_URL) return process.env.DATABASE_URL;
+  if (process.env.STORAGE_URL) return process.env.STORAGE_URL;
+  if (process.env.STORAGE_DATABASE_URL) return process.env.STORAGE_DATABASE_URL;
+  if (process.env.STORAGE_POSTGRES_URL) return process.env.STORAGE_POSTGRES_URL;
+  for (const [key, val] of Object.entries(process.env)) {
+    if (typeof val === 'string' && val.startsWith('postgres')) {
+      return val;
+    }
+  }
+  return null;
+}
 
 let pool = null;
 let usePostgres = false;
 let schemaInitialized = false;
 
-if (connectionString) {
-  try {
-    pool = new Pool({
-      connectionString,
-      ssl: {
-        rejectUnauthorized: false
-      },
-      max: 10,
-      idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 5000,
-    });
-    usePostgres = true;
-    console.log('🐘 PostgreSQL Pool configured');
-  } catch (err) {
-    console.warn('⚠️ Postgres initialization warning:', err.message);
-    usePostgres = false;
+function getPool() {
+  if (pool) return pool;
+  const conn = getConnectionString();
+  if (conn) {
+    try {
+      pool = new Pool({
+        connectionString: conn,
+        ssl: {
+          rejectUnauthorized: false
+        },
+        max: 10,
+        idleTimeoutMillis: 30000,
+        connectionTimeoutMillis: 5000,
+      });
+      usePostgres = true;
+      console.log('🐘 PostgreSQL Pool configured');
+      return pool;
+    } catch (err) {
+      console.warn('⚠️ Postgres initialization warning:', err.message);
+      usePostgres = false;
+    }
   }
+  return null;
 }
 
 // In-memory fallback dataset for zero-friction run if DB not yet connected
@@ -53,9 +71,10 @@ const store = {
 
 // Automatic table initialization on Vercel Postgres
 export async function ensureSchema() {
-  if (!usePostgres || !pool || schemaInitialized) return;
+  const p = getPool();
+  if (!p || schemaInitialized) return;
   try {
-    await pool.query(`
+    await p.query(`
       CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
         name VARCHAR(100) NOT NULL,
@@ -124,10 +143,10 @@ export async function ensureSchema() {
     `);
 
     // Seed default exams if empty
-    const checkExams = await pool.query('SELECT COUNT(*) FROM exams');
+    const checkExams = await p.query('SELECT COUNT(*) FROM exams');
     if (parseInt(checkExams.rows[0].count) === 0) {
       for (const ex of store.exams) {
-        await pool.query(
+        await p.query(
           `INSERT INTO exams (title, subject, duration_mins, total_questions, date, time, status, proctored, live_result, shuffle_q, shuffle_opt, max_violations, require_code, access_code)
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
           [ex.title, ex.subject, ex.duration_mins, ex.total_questions, ex.date, ex.time, ex.status, ex.proctored, ex.live_result, ex.shuffle_q, ex.shuffle_opt, ex.max_violations, ex.require_code, ex.access_code]
@@ -136,10 +155,10 @@ export async function ensureSchema() {
     }
 
     // Seed default questions if empty
-    const checkQ = await pool.query('SELECT COUNT(*) FROM questions');
+    const checkQ = await p.query('SELECT COUNT(*) FROM questions');
     if (parseInt(checkQ.rows[0].count) === 0) {
       for (const q of store.questions) {
-        await pool.query(
+        await p.query(
           `INSERT INTO questions (text, opt_a, opt_b, opt_c, opt_d, correct, subject, difficulty)
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
           [q.text, q.optA, q.optB, q.optC, q.optD, q.correct, q.subject, q.difficulty]
@@ -155,10 +174,11 @@ export async function ensureSchema() {
 }
 
 export const db = {
-  isPostgres: () => usePostgres,
+  isPostgres: () => Boolean(getPool()),
   query: async (text, params) => {
-    if (usePostgres && pool) {
-      return pool.query(text, params);
+    const p = getPool();
+    if (p) {
+      return p.query(text, params);
     }
     throw new Error('Postgres not connected');
   },
