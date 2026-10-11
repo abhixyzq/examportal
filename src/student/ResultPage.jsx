@@ -34,15 +34,15 @@ export default function ResultPage() {
   const score = questions.length > 0 ? Math.round((correct / total) * 100) : 0;
   const pass = score >= 60;
 
-  // 1. If Live Result is DISABLED by Admin, show secure submission confirmation
+  // 1. If Live Result is DISABLED by Admin, show clean submission confirmation
   if (!isLiveResult) {
     return (
-      <div style={{ maxWidth: 540, margin: '20px auto 0 auto', textAlign: 'center' }}>
-        <div className="card" style={{ padding: '36px 28px' }}>
+      <div style={{ maxWidth: 440, margin: '40px auto 0 auto', textAlign: 'center' }}>
+        <div className="card" style={{ padding: '36px 24px' }}>
           <div
             style={{
-              width: 68,
-              height: 68,
+              width: 60,
+              height: 60,
               borderRadius: '50%',
               background: 'rgba(16, 185, 129, 0.12)',
               color: 'var(--success)',
@@ -53,76 +53,56 @@ export default function ResultPage() {
               border: '2px solid var(--success)'
             }}
           >
-            <CheckIcon size={36} />
+            <CheckIcon size={32} />
           </div>
 
-          <h2 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-main)', marginBottom: 8 }}>
-            Exam Submitted Successfully!
+          <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text)', marginBottom: 6 }}>
+            Exam Submitted
           </h2>
 
           {autoSubmit && (
-            <div style={{ marginBottom: 14 }}>
-              <span className="badge badge-red" style={{ fontSize: 11.5, padding: '3px 10px' }}>
-                Auto-submitted due to proctoring policy
+            <div style={{ marginBottom: 12 }}>
+              <span className="badge badge-red" style={{ fontSize: 11 }}>
+                Auto-submitted
               </span>
             </div>
           )}
-
-          <p style={{ color: 'var(--text-muted)', fontSize: 13.5, lineHeight: 1.6, marginBottom: 22 }}>
-            Your exam answers have been securely recorded and locked in the system.
-          </p>
 
           <div
             style={{
               background: 'var(--bg-input)',
               border: '1px solid var(--border)',
-              borderRadius: 'var(--radius)',
-              padding: '16px 20px',
+              borderRadius: 'var(--radius-sm)',
+              padding: '12px 16px',
               textAlign: 'left',
-              marginBottom: 20
+              margin: '18px 0 20px 0'
             }}
           >
-            <div className="meta-row mb-2">
-              <span style={{ color: 'var(--text-muted)', fontSize: 13 }}>Examination:</span>
-              <span style={{ fontWeight: 600, fontSize: 13.5 }}>{exam?.title || 'Examination'}</span>
+            <div className="meta-row mb-1">
+              <span style={{ color: 'var(--text-muted)', fontSize: 12.5 }}>Exam:</span>
+              <span style={{ fontWeight: 600, fontSize: 13 }}>{exam?.title || 'Exam'}</span>
             </div>
-            <div className="meta-row mb-2">
-              <span style={{ color: 'var(--text-muted)', fontSize: 13 }}>Questions Attempted:</span>
-              <span style={{ fontWeight: 600, fontSize: 13.5 }}>
-                {Object.keys(answers).length} of {questions.length}
+            <div className="meta-row mb-1">
+              <span style={{ color: 'var(--text-muted)', fontSize: 12.5 }}>Attempted:</span>
+              <span style={{ fontWeight: 600, fontSize: 13 }}>
+                {Object.keys(answers).length} / {questions.length}
               </span>
             </div>
             <div className="meta-row">
-              <span style={{ color: 'var(--text-muted)', fontSize: 13 }}>Result Status:</span>
-              <span className="badge badge-yellow" style={{ fontSize: 11.5 }}>
-                Under Evaluation (Live Results Off)
+              <span style={{ color: 'var(--text-muted)', fontSize: 12.5 }}>Status:</span>
+              <span className="badge badge-yellow" style={{ fontSize: 11 }}>
+                Submitted
               </span>
             </div>
-          </div>
-
-          <div
-            style={{
-              fontSize: 12.5,
-              color: 'var(--text-muted)',
-              background: 'rgba(234, 179, 8, 0.08)',
-              border: '1px solid rgba(234, 179, 8, 0.25)',
-              borderRadius: 'var(--radius-sm)',
-              padding: '10px 14px',
-              marginBottom: 24,
-              lineHeight: 1.5,
-              textAlign: 'left'
-            }}
-          >
-            ℹ️ <strong>Live Result Notice:</strong> Immediate score publication is turned off for this examination by the invigilator. Official results and scorecards will be published after review.
           </div>
 
           <button
             type="button"
             className="btn btn-primary w-full"
-            style={{ justifyContent: 'center', padding: '10px 16px', fontSize: 14 }}
+            style={{ justifyContent: 'center', padding: '9px 16px', fontSize: 13.5 }}
             onClick={() => navigate('/student')}
           >
-            ← Return to Student Dashboard
+            Back to Dashboard
           </button>
         </div>
       </div>
