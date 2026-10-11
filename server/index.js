@@ -8,6 +8,7 @@ import authRoutes from './routes/auth.js';
 import questionRoutes from './routes/questions.js';
 import examRoutes from './routes/exams.js';
 import submissionRoutes from './routes/submissions.js';
+import candidateRoutes from './routes/candidates.js';
 import { setupMonitorSockets } from './sockets/monitor.js';
 
 dotenv.config();
@@ -48,6 +49,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/questions', questionRoutes);
 app.use('/api/exams', examRoutes);
 app.use('/api/submissions', submissionRoutes);
+app.use('/api/candidates', candidateRoutes);
 
 // Setup Socket Monitoring Engine
 setupMonitorSockets(io);

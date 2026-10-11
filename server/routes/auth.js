@@ -79,6 +79,63 @@ router.post('/login', async (req, res) => {
   }
 });
 
+// POST /api/auth/student-login (Students log in via Roll Number ONLY)
+router.post('/student-login', async (req, res) => {
+  try {
+    const { roll_no } = req.body;
+    if (!roll_no || !roll_no.trim()) {
+      return res.status(400).json({ error: 'Roll number is required to enter the portal' });
+    }
+
+    const cleanRoll = roll_no.trim().toUpperCase();
+    let candidate = null;
+
+    if (db.isPostgres()) {
+      const q = await db.query(
+        'SELECT * FROM candidates WHERE UPPER(TRIM(roll_no)) = $1 LIMIT 1',
+        [cleanRoll]
+      );
+      candidate = q.rows[0];
+    } else {
+      candidate = (db.store.candidates || []).find(
+        c => c.roll_no.trim().toUpperCase() === cleanRoll
+      );
+    }
+
+    if (!candidate) {
+      return res.status(401).json({
+        error: `Roll Number "${cleanRoll}" is not registered! Only candidates who filled the examination form are allowed.`
+      });
+    }
+
+    const token = jwt.sign(
+      {
+        id: candidate.id,
+        name: candidate.name,
+        roll_no: candidate.roll_no,
+        role: 'student',
+        exam_id: candidate.exam_id,
+      },
+      JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    res.json({
+      token,
+      user: {
+        id: candidate.id,
+        name: candidate.name,
+        roll_no: candidate.roll_no,
+        role: 'student',
+        exam_id: candidate.exam_id,
+      }
+    });
+  } catch (err) {
+    console.error('Student login error:', err);
+    res.status(500).json({ error: 'Internal server error during student login' });
+  }
+});
+
 // GET /api/auth/me
 router.get('/me', authenticate, (req, res) => {
   res.json({ user: req.user });

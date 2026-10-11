@@ -59,7 +59,14 @@ const INITIAL_DATA = {
     { id: 3, title: 'Chemistry Quiz', subject: 'Chemistry', duration_mins: 30, total_questions: 20, date: '2026-10-05', time: '09:00', status: 'completed', proctored: false, live_result: true, shuffle_q: false, shuffle_opt: false, require_code: false, access_code: '', max_violations: 3 },
   ],
   submissions: [],
-  violations: []
+  violations: [],
+  candidates: [
+    { id: 1, roll_no: '2026-CS-101', name: 'Rahul Sharma', exam_id: null },
+    { id: 2, roll_no: '2026-CS-102', name: 'Priya Patel', exam_id: null },
+    { id: 3, roll_no: '2026-CS-103', name: 'Amit Kumar', exam_id: null },
+    { id: 4, roll_no: '2026-CS-104', name: 'Sneha Singh', exam_id: null },
+    { id: 5, roll_no: '2026-CS-105', name: 'Vikas Verma', exam_id: null },
+  ]
 };
 
 function loadLocalStore() {
