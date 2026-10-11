@@ -125,6 +125,10 @@ export const api = {
     method: 'POST',
     body: JSON.stringify(submissionData),
   }),
+  resetSubmission: async (params) => request('/submissions/reset', {
+    method: 'POST',
+    body: JSON.stringify(params),
+  }),
   getExamResults: async (examId) => request(`/submissions/results/${examId}`),
   getMyResults: async () => request('/submissions/my-results'),
 

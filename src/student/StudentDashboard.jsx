@@ -8,11 +8,16 @@ export default function StudentDashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [exams, setExams] = useState([]);
+  const [mySubmissions, setMySubmissions] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api.getExams().then(list => {
+    Promise.all([
+      api.getExams().catch(() => []),
+      api.getMyResults().catch(() => [])
+    ]).then(([list, subs]) => {
       setExams(list || []);
+      setMySubmissions(subs || []);
       setLoading(false);
     }).catch(() => setLoading(false));
   }, []);
@@ -21,7 +26,16 @@ export default function StudentDashboard() {
   const [enteredCode, setEnteredCode] = useState('');
   const [codeError, setCodeError] = useState('');
 
+  const isExamSubmitted = (examId) => {
+    return mySubmissions.some(s => Number(s.exam_id) === Number(examId));
+  };
+
   const handleStartExam = (exam) => {
+    if (isExamSubmitted(exam.id)) {
+      alert(`You have already submitted "${exam.title}". Retaking is not allowed unless an administrator resets your exam.`);
+      return;
+    }
+
     if (user?.exam_id && Number(user.exam_id) !== Number(exam.id)) {
       alert(`You are enrolled for a different examination. Access to "${exam.title}" is restricted.`);
       return;
@@ -104,18 +118,31 @@ export default function StudentDashboard() {
               <span className={`badge ${exam.status === 'active' ? 'badge-green' : exam.status === 'upcoming' ? 'badge-blue' : 'badge-gray'}`}>
                 {exam.status}
               </span>
-              {exam.status === 'active' && (
-                <button className="btn btn-primary btn-sm" onClick={() => handleStartExam(exam)}>
-                  Start Exam
-                </button>
-              )}
-              {exam.status === 'completed' && (
-                <button className="btn btn-ghost btn-sm" onClick={() => navigate('/student/results')}>
-                  View Result
-                </button>
-              )}
-              {exam.status === 'upcoming' && (
-                <button className="btn btn-ghost btn-sm" disabled style={{ opacity: 0.5 }}>Upcoming</button>
+              {isExamSubmitted(exam.id) ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span className="badge badge-yellow" style={{ fontSize: 11 }}>
+                    Already Submitted
+                  </span>
+                  <button className="btn btn-ghost btn-sm" onClick={() => navigate('/student/results')}>
+                    View Status
+                  </button>
+                </div>
+              ) : (
+                <>
+                  {exam.status === 'active' && (
+                    <button className="btn btn-primary btn-sm" onClick={() => handleStartExam(exam)}>
+                      Start Exam
+                    </button>
+                  )}
+                  {exam.status === 'completed' && (
+                    <button className="btn btn-ghost btn-sm" onClick={() => navigate('/student/results')}>
+                      View Result
+                    </button>
+                  )}
+                  {exam.status === 'upcoming' && (
+                    <button className="btn btn-ghost btn-sm" disabled style={{ opacity: 0.5 }}>Upcoming</button>
+                  )}
+                </>
               )}
             </div>
           </div>

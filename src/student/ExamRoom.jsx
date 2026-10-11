@@ -31,14 +31,23 @@ export default function ExamRoom() {
   const [showMobileNav, setShowMobileNav] = useState(false);
 
 
+  const [alreadySubmitted, setAlreadySubmitted] = useState(false);
+
   useEffect(() => {
     Promise.all([
       api.getExams().catch(() => []),
-      api.getQuestions(id).catch(() => [])
-    ]).then(([examList, qList]) => {
+      api.getQuestions(id).catch(() => []),
+      api.getMyResults().catch(() => [])
+    ]).then(([examList, qList, mySubs]) => {
       const found = (examList || []).find(e => String(e.id) === String(id)) || examList?.[0] || null;
       setCurrentExam(found);
       setQuestions(qList || []);
+
+      const hasSub = (mySubs || []).some(s => Number(s.exam_id) === Number(id));
+      if (hasSub) {
+        setAlreadySubmitted(true);
+      }
+
       if (found?.duration_mins || found?.duration) {
         setSecondsLeft((found.duration_mins || found.duration) * 60);
       }
@@ -315,8 +324,33 @@ export default function ExamRoom() {
 
   return (
     <>
+      {/* 0. Already Submitted Block Gate */}
+      {alreadySubmitted && (
+        <div className="violation-overlay">
+          <div className="violation-box" style={{ maxWidth: 420 }}>
+            <div style={{ color: 'var(--warning)', display: 'flex', justifyContent: 'center', marginBottom: 12 }}>
+              <ShieldIcon size={38} />
+            </div>
+            <div className="violation-title" style={{ color: 'var(--text)', fontSize: 18, marginBottom: 8 }}>
+              Exam Already Submitted
+            </div>
+            <div className="violation-text" style={{ fontSize: 13, marginBottom: 20 }}>
+              You have already completed and submitted this examination. Re-taking is not allowed unless an invigilator or administrator resets your exam.
+            </div>
+            <button
+              type="button"
+              className="btn btn-primary w-full"
+              style={{ justifyContent: 'center' }}
+              onClick={() => navigate('/student')}
+            >
+              Back to Dashboard
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* 1. Mandatory Proctored Exam Instructions Gate */}
-      {!hasStarted && (
+      {!hasStarted && !alreadySubmitted && (
         <div className="violation-overlay">
           <div className="violation-box" style={{ maxWidth: 440, textAlign: 'left' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>

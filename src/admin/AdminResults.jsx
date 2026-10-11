@@ -39,6 +39,25 @@ export default function AdminResults() {
     ? Math.max(...results.map(r => r.percentage || r.score || 0))
     : 0;
 
+  const handleResetExam = async (r) => {
+    const candidateName = r.user_name || r.name || 'this candidate';
+    if (!window.confirm(`Reset exam for "${candidateName}"?\n\nThis will remove their submission and allow them to take this exam again.`)) {
+      return;
+    }
+    try {
+      await api.resetSubmission({
+        submissionId: r.id,
+        examId: selectedExamId,
+        userId: r.user_id
+      });
+      alert(`Exam reset successfully for ${candidateName}. They can now retake the exam.`);
+      const data = await api.getExamResults(selectedExamId);
+      setResults(data || []);
+    } catch (err) {
+      alert('Failed to reset exam: ' + (err.message || 'Unknown error'));
+    }
+  };
+
   return (
     <div>
       <div className="page-header flex-between">
@@ -90,18 +109,19 @@ export default function AdminResults() {
                 <th>Score</th>
                 <th>Violations</th>
                 <th>Status</th>
+                <th style={{ textAlign: 'right' }}>Action</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={6} style={{ textAlign: 'center', padding: 24, color: 'var(--text-muted)' }}>
+                  <td colSpan={7} style={{ textAlign: 'center', padding: 24, color: 'var(--text-muted)' }}>
                     Loading results...
                   </td>
                 </tr>
               ) : results.length === 0 ? (
                 <tr>
-                  <td colSpan={6} style={{ textAlign: 'center', padding: 36, color: 'var(--text-muted)' }}>
+                  <td colSpan={7} style={{ textAlign: 'center', padding: 36, color: 'var(--text-muted)' }}>
                     No exam submissions recorded yet. Results will appear here once candidates submit their exams.
                   </td>
                 </tr>
@@ -121,6 +141,17 @@ export default function AdminResults() {
                       <span className={`badge ${r.passed ? 'badge-green' : 'badge-red'}`}>
                         {r.passed ? 'Passed' : 'Failed'}
                       </span>
+                    </td>
+                    <td style={{ textAlign: 'right' }}>
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-sm"
+                        onClick={() => handleResetExam(r)}
+                        style={{ color: 'var(--danger)', fontSize: 12, padding: '3px 8px' }}
+                        title="Reset candidate exam to allow retaking"
+                      >
+                        Reset Exam
+                      </button>
                     </td>
                   </tr>
                 ))

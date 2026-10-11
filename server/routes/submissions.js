@@ -10,6 +10,28 @@ router.post('/', authenticate, async (req, res) => {
     const { examId, answers = {}, autoSubmitted = false, violationsCount = 0 } = req.body;
     const userId = req.user.id;
 
+    // Reject if candidate has already submitted this exam
+    if (db.isPostgres()) {
+      const existing = await db.query(
+        'SELECT id FROM exam_submissions WHERE exam_id = $1 AND user_id = $2',
+        [Number(examId), userId]
+      );
+      if (existing.rows.length > 0) {
+        return res.status(403).json({
+          error: 'You have already submitted this exam. Contact the administrator to reset your exam.'
+        });
+      }
+    } else {
+      const existing = (db.store.submissions || []).find(
+        s => Number(s.exam_id) === Number(examId) && Number(s.user_id) === Number(userId)
+      );
+      if (existing) {
+        return res.status(403).json({
+          error: 'You have already submitted this exam. Contact the administrator to reset your exam.'
+        });
+      }
+    }
+
     // Fetch questions specifically for this exam to calculate score
     let questions = [];
     if (db.isPostgres()) {
@@ -191,6 +213,35 @@ router.get('/my-results', authenticate, async (req, res) => {
 
     const mySubs = db.store.submissions.filter(s => s.user_id === userId);
     res.json(mySubs);
+  } catch (err) {
+// POST /api/submissions/reset (Admin resets a candidate's exam submission)
+router.post('/reset', authenticate, async (req, res) => {
+  try {
+    if (req.user?.role !== 'admin') {
+      return res.status(403).json({ error: 'Admin privileges required' });
+    }
+    const { submissionId, examId, userId } = req.body;
+    if (db.isPostgres()) {
+      if (submissionId) {
+        await db.query('DELETE FROM exam_submissions WHERE id = $1', [Number(submissionId)]);
+      } else if (examId && userId) {
+        await db.query(
+          'DELETE FROM exam_submissions WHERE exam_id = $1 AND user_id = $2',
+          [Number(examId), Number(userId)]
+        );
+      }
+      return res.json({ success: true, message: 'Candidate exam successfully reset.' });
+    }
+
+    if (submissionId) {
+      db.store.submissions = (db.store.submissions || []).filter(s => s.id !== Number(submissionId));
+    } else if (examId && userId) {
+      db.store.submissions = (db.store.submissions || []).filter(
+        s => !(Number(s.exam_id) === Number(examId) && Number(s.user_id) === Number(userId))
+      );
+    }
+    saveLocalStore();
+    res.json({ success: true, message: 'Candidate exam successfully reset.' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
