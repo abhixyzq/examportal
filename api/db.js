@@ -45,35 +45,17 @@ function getPool() {
   return null;
 }
 
-// In-memory fallback dataset for zero-friction run if DB not yet connected
+// Clean production in-memory store
 const store = {
   users: [
     { id: 1, name: 'Admin', email: 'admin@exam.com', role: 'admin' },
-    { id: 2, name: 'Rahul Sharma', email: 'student@exam.com', role: 'student', roll_no: '2026-CS-101' },
-    { id: 3, name: 'Priya Patel', email: 'priya@exam.com', role: 'student', roll_no: '2026-CS-102' },
   ],
-  questions: [
-    { id: 1, text: 'What is the value of π (pi) to 2 decimal places?', optA: '3.14', optB: '3.41', optC: '3.12', optD: '3.16', correct: 'A', subject: 'Math', difficulty: 'easy' },
-    { id: 2, text: 'Which of the following is Newton\'s Second Law of Motion?', optA: 'F = ma', optB: 'E = mc²', optC: 'v = u + at', optD: 'P = mv', correct: 'A', subject: 'Physics', difficulty: 'easy' },
-    { id: 3, text: 'What is the atomic number of Carbon?', optA: '6', optB: '12', optC: '8', optD: '4', correct: 'A', subject: 'Chemistry', difficulty: 'easy' },
-    { id: 4, text: 'Solve: If 2x + 5 = 17, what is x?', optA: '5', optB: '6', optC: '4', optD: '7', correct: 'B', subject: 'Math', difficulty: 'medium' },
-    { id: 5, text: 'What is the SI unit of Electric Current?', optA: 'Volt', optB: 'Watt', optC: 'Ampere', optD: 'Ohm', correct: 'C', subject: 'Physics', difficulty: 'easy' },
-  ],
-  exams: [
-    { id: 1, title: 'Mathematics Test', subject: 'Math', duration_mins: 60, total_questions: 30, date: '2026-10-15', time: '10:00', status: 'upcoming', proctored: true, live_result: false, shuffle_q: true, shuffle_opt: true, require_code: true, access_code: 'MATH26', max_violations: 3 },
-    { id: 2, title: 'Physics Mid-Term', subject: 'Physics', duration_mins: 90, total_questions: 50, date: '2026-10-11', time: '11:00', status: 'active', proctored: true, live_result: true, shuffle_q: true, shuffle_opt: false, require_code: true, access_code: 'PHYS90', max_violations: 3 },
-    { id: 3, title: 'Chemistry Quiz', subject: 'Chemistry', duration_mins: 30, total_questions: 20, date: '2026-10-05', time: '09:00', status: 'completed', proctored: false, live_result: true, shuffle_q: false, shuffle_opt: false, require_code: false, access_code: '', max_violations: 3 },
-  ],
+  questions: [],
+  exams: [],
   submissions: [],
   violations: [],
-  candidates: [
-    { id: 1, roll_no: '2026-CS-101', name: 'Rahul Sharma', exam_id: null },
-    { id: 2, roll_no: '2026-CS-102', name: 'Priya Patel', exam_id: null },
-    { id: 3, roll_no: '2026-CS-103', name: 'Amit Kumar', exam_id: null },
-    { id: 4, roll_no: '2026-CS-104', name: 'Sneha Singh', exam_id: null },
-    { id: 5, roll_no: '2026-CS-105', name: 'Vikas Verma', exam_id: null },
-  ],
-  activeStudents: {}, // In-memory telemetry cache for live monitor
+  candidates: [],
+  activeStudents: {},
 };
 
 // Automatic table initialization on Vercel Postgres
@@ -158,43 +140,15 @@ export async function ensureSchema() {
       CREATE INDEX IF NOT EXISTS idx_candidates_roll ON candidates(LOWER(roll_no));
     `);
 
-    // Seed default exams if empty
-    const checkExams = await p.query('SELECT COUNT(*) FROM exams');
-    if (parseInt(checkExams.rows[0].count) === 0) {
-      for (const ex of store.exams) {
-        await p.query(
-          `INSERT INTO exams (title, subject, duration_mins, total_questions, date, time, status, proctored, live_result, shuffle_q, shuffle_opt, max_violations, require_code, access_code)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
-          [ex.title, ex.subject, ex.duration_mins, ex.total_questions, ex.date, ex.time, ex.status, ex.proctored, ex.live_result, ex.shuffle_q, ex.shuffle_opt, ex.max_violations, ex.require_code, ex.access_code]
-        );
-      }
-    }
-
-    // Seed default questions if empty
-    const checkQ = await p.query('SELECT COUNT(*) FROM questions');
-    if (parseInt(checkQ.rows[0].count) === 0) {
-      for (const q of store.questions) {
-        await p.query(
-          `INSERT INTO questions (text, opt_a, opt_b, opt_c, opt_d, correct, subject, difficulty)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-          [q.text, q.optA, q.optB, q.optC, q.optD, q.correct, q.subject, q.difficulty]
-        );
-      }
-    }
-
-    // Seed default candidates if empty
-    const checkCand = await p.query('SELECT COUNT(*) FROM candidates');
-    if (parseInt(checkCand.rows[0].count) === 0) {
-      for (const c of store.candidates) {
-        await p.query(
-          `INSERT INTO candidates (roll_no, name, exam_id) VALUES ($1, $2, $3)`,
-          [c.roll_no, c.name, c.exam_id]
-        );
-      }
-    }
+    // Clean out any previously seeded dummy test records
+    await p.query(`
+      DELETE FROM exams WHERE access_code IN ('MATH26', 'PHYS90') OR title IN ('Mathematics Test', 'Physics Mid-Term', 'Chemistry Quiz');
+      DELETE FROM questions WHERE text LIKE 'What is the value of π%' OR text LIKE 'Which of the following is Newton%' OR text LIKE 'What is the atomic number of Carbon%';
+      DELETE FROM candidates WHERE roll_no IN ('2026-CS-101', '2026-CS-102', '2026-CS-103', '2026-CS-104', '2026-CS-105');
+    `).catch(() => {});
 
     schemaInitialized = true;
-    console.log('✅ PostgreSQL Schema and initial seeds verified');
+    console.log('✅ PostgreSQL Schema verified (zero dummy data)');
   } catch (err) {
     console.warn('Postgres schema ensure warning:', err.message);
   }

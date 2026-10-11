@@ -3,7 +3,6 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useProctoring } from '../hooks/useProctoring';
 import { ViolationWarning } from '../pages/Login';
-import { DEMO_QUESTIONS, getStoredExams } from '../data/demo';
 import ThemeToggle from '../components/ThemeToggle';
 import { ClockIcon, ShieldIcon, LockIcon, KeyIcon } from '../components/Icons';
 import { getSocket } from '../services/socket';
@@ -25,22 +24,36 @@ export default function ExamRoom() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { id } = useParams();
-  const exams = getStoredExams();
-  const currentExam = exams.find(e => String(e.id) === String(id)) || exams[1] || exams[0];
+  const [currentExam, setCurrentExam] = useState(null);
+  const [questions, setQuestions] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const questions = DEMO_QUESTIONS;
+  useEffect(() => {
+    Promise.all([
+      api.getExams().catch(() => []),
+      api.getQuestions().catch(() => [])
+    ]).then(([examList, qList]) => {
+      const found = (examList || []).find(e => String(e.id) === String(id)) || examList?.[0] || null;
+      setCurrentExam(found);
+      setQuestions(qList || []);
+      if (found?.duration_mins || found?.duration) {
+        setSecondsLeft((found.duration_mins || found.duration) * 60);
+      }
+      setLoading(false);
+    });
+  }, [id]);
+
   const [hasStarted, setHasStarted] = useState(false);
   const [current, setCurrent] = useState(0);
   const [answers, setAnswers] = useState({});
-  const [secondsLeft, setSecondsLeft] = useState((currentExam?.duration || 60) * 60);
+  const [secondsLeft, setSecondsLeft] = useState(3600);
   const [submitted, setSubmitted] = useState(false);
   const [confirmSubmit, setConfirmSubmit] = useState(false);
 
   // Access Code check
-  const requiresCode = Boolean(currentExam?.requireCode);
+  const requiresCode = Boolean(currentExam?.requireCode || currentExam?.require_code);
   const [codeVerified, setCodeVerified] = useState(() => {
-    if (!requiresCode) return true;
-    return sessionStorage.getItem(`ep_exam_auth_${currentExam?.id}`) === 'true';
+    return sessionStorage.getItem(`ep_exam_auth_${id}`) === 'true';
   });
   const [inputCode, setInputCode] = useState('');
   const [codeError, setCodeError] = useState('');
@@ -55,8 +68,8 @@ export default function ExamRoom() {
         violationsCount: 3,
       });
     } catch {}
-    navigate('/student/result', { state: { answers, autoSubmit: true } });
-  }, [answers, currentExam, navigate]);
+    navigate('/student/result', { state: { answers, autoSubmit: true, questions } });
+  }, [answers, currentExam, navigate, questions]);
 
   const handleViolation = useCallback((v) => {
     try {
@@ -183,7 +196,7 @@ export default function ExamRoom() {
         violationsCount,
       });
     } catch {}
-    navigate('/student/result', { state: { answers } });
+    navigate('/student/result', { state: { answers, questions } });
   };
 
   const handleStartWithCodeCheck = async (e) => {
@@ -373,20 +386,29 @@ export default function ExamRoom() {
           </div>
 
           <div className="exam-body">
-            <div className="question-count">Question {current + 1} of {questions.length}</div>
-            <div className="question-text">{q?.text}</div>
-            <div className="options-list">
-              {opts.map(opt => (
-                <div
-                  key={opt}
-                  className={`option-item ${answers[q?.id] === opt ? 'selected' : ''}`}
-                  onClick={() => selectAnswer(q?.id, opt)}
-                >
-                  <div className="option-letter">{opt}</div>
-                  <div className="option-text">{optTexts[opt]}</div>
+            {!q ? (
+              <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text-muted)' }}>
+                <h3 style={{ fontSize: 18, color: 'var(--text-main)', marginBottom: 8 }}>No Questions Configured</h3>
+                <p>Questions have not been added to this examination yet. Please contact the invigilator.</p>
+              </div>
+            ) : (
+              <>
+                <div className="question-count">Question {current + 1} of {questions.length}</div>
+                <div className="question-text">{q?.text}</div>
+                <div className="options-list">
+                  {opts.map(opt => (
+                    <div
+                      key={opt}
+                      className={`option-item ${answers[q?.id] === opt ? 'selected' : ''}`}
+                      onClick={() => selectAnswer(q?.id, opt)}
+                    >
+                      <div className="option-letter">{opt}</div>
+                      <div className="option-text">{optTexts[opt]}</div>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+              </>
+            )}
 
             <div className="flex-between mt-3">
               <button

@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { DEMO_STUDENTS } from '../data/demo';
 import { CloseIcon, ShieldIcon } from '../components/Icons';
 import { getSocket } from '../services/socket';
 import { api } from '../services/api';
@@ -14,7 +13,7 @@ const VIOLATION_NAMES = {
 };
 
 export default function LiveMonitor() {
-  const [students, setStudents] = useState(DEMO_STUDENTS);
+  const [students, setStudents] = useState([]);
   const [selected, setSelected] = useState(null);
   const [filter, setFilter] = useState('all');
 
@@ -23,12 +22,8 @@ export default function LiveMonitor() {
     const fetchLive = async () => {
       try {
         const data = await api.getLiveMonitor(2);
-        if (data?.students?.length > 0) {
-          setStudents(prev => {
-            const incomingIds = new Set(data.students.map(s => s.id));
-            const rest = prev.filter(s => !incomingIds.has(s.id));
-            return [...data.students, ...rest];
-          });
+        if (data?.students) {
+          setStudents(data.students);
         }
       } catch {}
     };
@@ -42,12 +37,8 @@ export default function LiveMonitor() {
     } catch {}
 
     socket.on('monitor:init', (data) => {
-      if (data?.students?.length > 0) {
-        setStudents(prev => {
-          const incomingIds = new Set(data.students.map(s => s.id));
-          const rest = prev.filter(s => !incomingIds.has(s.id));
-          return [...data.students, ...rest];
-        });
+      if (data?.students) {
+        setStudents(data.students);
       }
     });
 
@@ -68,17 +59,8 @@ export default function LiveMonitor() {
       }
     });
 
-    // Fallback simulation timer
-    const interval = setInterval(() => {
-      setStudents(prev => prev.map(s => ({
-        ...s,
-        answered: s.status !== 'submitted' ? Math.min(s.answered + (Math.random() > 0.8 ? 1 : 0), s.total) : s.answered,
-      })));
-    }, 4000);
-
     return () => {
       clearInterval(pollInterval);
-      clearInterval(interval);
       try {
         socket.off('monitor:init');
         socket.off('monitor:heartbeat');
@@ -127,42 +109,48 @@ export default function LiveMonitor() {
         </div>
       </div>
 
-      <div className="monitor-grid">
-        {filtered.map(s => (
-          <div
-            key={s.id}
-            className={`student-card ${s.status === 'warning' ? 'warning' : s.status === 'danger' ? 'danger' : ''}`}
-            onClick={() => setSelected(s)}
-            style={{ cursor: 'pointer' }}
-          >
-            <div className="flex-between">
-              <div className="student-name">{s.name}</div>
-              <span className={`badge ${s.status === 'active' ? 'badge-green' : s.status === 'warning' ? 'badge-yellow' : s.status === 'danger' ? 'badge-red' : 'badge-gray'}`}>
-                {s.status}
-              </span>
-            </div>
-            <div className="student-meta">
-              <div className="meta-row">
-                <span>Progress</span>
-                <span className="meta-val">{s.answered}/{s.total}</span>
-              </div>
-              <div style={{ margin: '6px 0 2px', height: 3, background: 'var(--border)', borderRadius: 2 }}>
-                <div style={{ height: '100%', width: `${(s.answered / s.total) * 100}%`, background: 'var(--primary)', borderRadius: 2, transition: 'width 0.4s' }} />
-              </div>
-              <div className="meta-row" style={{ marginTop: 6 }}>
-                <span>Time Left</span>
-                <span className="meta-val">{s.timeLeft}</span>
-              </div>
-              <div className="meta-row">
-                <span>Violations</span>
-                <span className="meta-val" style={{ color: s.violations > 0 ? 'var(--danger)' : 'var(--text-sub)' }}>
-                  {s.violations}
+      {filtered.length === 0 ? (
+        <div className="card" style={{ textAlign: 'center', padding: 48, color: 'var(--text-muted)' }}>
+          No candidates currently active in the examination room.
+        </div>
+      ) : (
+        <div className="monitor-grid">
+          {filtered.map(s => (
+            <div
+              key={s.id}
+              className={`student-card ${s.status === 'warning' ? 'warning' : s.status === 'danger' ? 'danger' : ''}`}
+              onClick={() => setSelected(s)}
+              style={{ cursor: 'pointer' }}
+            >
+              <div className="flex-between">
+                <div className="student-name">{s.name}</div>
+                <span className={`badge ${s.status === 'active' ? 'badge-green' : s.status === 'warning' ? 'badge-yellow' : s.status === 'danger' ? 'badge-red' : 'badge-gray'}`}>
+                  {s.status}
                 </span>
               </div>
+              <div className="student-meta">
+                <div className="meta-row">
+                  <span>Progress</span>
+                  <span className="meta-val">{s.answered}/{s.total}</span>
+                </div>
+                <div style={{ margin: '6px 0 2px', height: 3, background: 'var(--border)', borderRadius: 2 }}>
+                  <div style={{ height: '100%', width: `${(s.answered / s.total) * 100}%`, background: 'var(--primary)', borderRadius: 2, transition: 'width 0.4s' }} />
+                </div>
+                <div className="meta-row" style={{ marginTop: 6 }}>
+                  <span>Time Left</span>
+                  <span className="meta-val">{s.timeLeft}</span>
+                </div>
+                <div className="meta-row">
+                  <span>Violations</span>
+                  <span className="meta-val" style={{ color: s.violations > 0 ? 'var(--danger)' : 'var(--text-sub)' }}>
+                    {s.violations}
+                  </span>
+                </div>
+              </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
       {/* Student Detail Modal */}
       {selected && (

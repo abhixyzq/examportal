@@ -1,11 +1,32 @@
-import { useNavigate } from 'react-router-dom';
-
-const myResults = [
-  { id: 1, exam: 'Chemistry Quiz', date: '2026-10-05', score: 78, total: 20, correct: 15, rank: 3, pass: true },
-];
+import { useState, useEffect } from 'react';
+import { api } from '../services/api';
 
 export default function MyResults() {
-  const navigate = useNavigate();
+  const [myResults, setMyResults] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    api.getMyResults().then(data => {
+      setMyResults(data || []);
+      setLoading(false);
+    }).catch(() => {
+      setMyResults([]);
+      setLoading(false);
+    });
+  }, []);
+
+  if (loading) {
+    return (
+      <div>
+        <div className="page-header">
+          <div className="page-title">My Results</div>
+        </div>
+        <div className="card" style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>
+          Loading your exam results...
+        </div>
+      </div>
+    );
+  }
 
   if (myResults.length === 0) {
     return (
@@ -14,7 +35,7 @@ export default function MyResults() {
           <div className="page-title">My Results</div>
         </div>
         <div className="card" style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>
-          No results yet
+          No examination results recorded yet.
         </div>
       </div>
     );
@@ -32,15 +53,17 @@ export default function MyResults() {
           <div key={r.id} className="card card-sm">
             <div className="flex-between">
               <div>
-                <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>{r.exam}</div>
-                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{r.date} · {r.correct}/{r.total} correct · Rank #{r.rank}</div>
+                <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>{r.exam_title || r.exam}</div>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                  {r.submitted_at?.split('T')[0] || r.date} · {r.score}/{r.total_questions || r.total} correct
+                </div>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div style={{ fontWeight: 700, fontSize: 22, color: r.pass ? 'var(--success)' : 'var(--danger)' }}>
-                  {r.score}%
+                <div style={{ fontWeight: 700, fontSize: 22, color: r.passed ? 'var(--success)' : 'var(--danger)' }}>
+                  {r.percentage || r.score}%
                 </div>
-                <span className={`badge ${r.pass ? 'badge-green' : 'badge-red'}`}>
-                  {r.pass ? 'Pass' : 'Fail'}
+                <span className={`badge ${r.passed ? 'badge-green' : 'badge-red'}`}>
+                  {r.passed ? 'Passed' : 'Failed'}
                 </span>
               </div>
             </div>

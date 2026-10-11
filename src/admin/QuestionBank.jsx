@@ -1,30 +1,53 @@
-import { useState } from 'react';
-import { DEMO_QUESTIONS } from '../data/demo';
+import { useState, useEffect } from 'react';
+import { api } from '../services/api';
 import { UploadIcon, PlusIcon, CloseIcon, TrashIcon } from '../components/Icons';
 
 const EMPTY = { text: '', optA: '', optB: '', optC: '', optD: '', correct: 'A', subject: '', difficulty: 'easy' };
 
 export default function QuestionBank() {
-  const [questions, setQuestions] = useState(DEMO_QUESTIONS);
+  const [questions, setQuestions] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(EMPTY);
   const [search, setSearch] = useState('');
 
-  const filtered = questions.filter(q =>
-    q.text.toLowerCase().includes(search.toLowerCase()) ||
-    q.subject.toLowerCase().includes(search.toLowerCase())
-  );
-
-  const handleAdd = (e) => {
-    e.preventDefault();
-    const newQ = { ...form, id: Date.now() };
-    setQuestions(prev => [newQ, ...prev]);
-    setForm(EMPTY);
-    setShowForm(false);
+  const loadQuestions = async () => {
+    try {
+      const data = await api.getQuestions();
+      setQuestions(data || []);
+    } catch {}
+    setLoading(false);
   };
 
-  const handleDelete = (id) => {
-    setQuestions(prev => prev.filter(q => q.id !== id));
+  useEffect(() => {
+    loadQuestions();
+  }, []);
+
+  const filtered = questions.filter(q =>
+    (q.text || '').toLowerCase().includes(search.toLowerCase()) ||
+    (q.subject || '').toLowerCase().includes(search.toLowerCase())
+  );
+
+  const handleAdd = async (e) => {
+    e.preventDefault();
+    try {
+      await api.addQuestion(form);
+      loadQuestions();
+      setForm(EMPTY);
+      setShowForm(false);
+    } catch (err) {
+      alert(err.message || 'Failed to add question');
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm('Delete this question?')) return;
+    try {
+      await api.deleteQuestion(id);
+      loadQuestions();
+    } catch (err) {
+      alert(err.message || 'Failed to delete question');
+    }
   };
 
   return (
@@ -35,9 +58,6 @@ export default function QuestionBank() {
           <div className="page-sub">{questions.length} questions total</div>
         </div>
         <div className="flex gap-2">
-          <button className="btn btn-ghost btn-sm">
-            <UploadIcon size={14} /> Import CSV
-          </button>
           <button className="btn btn-primary btn-sm" onClick={() => setShowForm(v => !v)}>
             {showForm ? <><CloseIcon size={14} /> Cancel</> : <><PlusIcon size={14} /> Add Question</>}
           </button>
@@ -62,31 +82,41 @@ export default function QuestionBank() {
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
               <div className="form-group">
-                <label className="form-label">Correct Answer</label>
+                <label className="form-label">Correct Option</label>
                 <select className="form-control" value={form.correct} onChange={e => setForm(f => ({ ...f, correct: e.target.value }))}>
                   {['A','B','C','D'].map(o => <option key={o}>{o}</option>)}
                 </select>
               </div>
               <div className="form-group">
                 <label className="form-label">Subject</label>
-                <input className="form-control" placeholder="e.g. Math" value={form.subject} onChange={e => setForm(f => ({ ...f, subject: e.target.value }))} />
+                <input className="form-control" placeholder="e.g. Physics" value={form.subject} onChange={e => setForm(f => ({ ...f, subject: e.target.value }))} required />
               </div>
               <div className="form-group">
                 <label className="form-label">Difficulty</label>
                 <select className="form-control" value={form.difficulty} onChange={e => setForm(f => ({ ...f, difficulty: e.target.value }))}>
-                  <option>easy</option><option>medium</option><option>hard</option>
+                  <option value="easy">Easy</option>
+                  <option value="medium">Medium</option>
+                  <option value="hard">Hard</option>
                 </select>
               </div>
             </div>
-            <button className="btn btn-primary" type="submit">Save Question</button>
+            <div className="flex gap-2 justify-end mt-2">
+              <button type="button" className="btn btn-ghost" onClick={() => setShowForm(false)}>Cancel</button>
+              <button type="submit" className="btn btn-primary">Save Question</button>
+            </div>
           </form>
         </div>
       )}
 
       <div className="card">
         <div className="flex-between mb-3">
-          <input className="form-control" style={{ maxWidth: 280 }} placeholder="Search questions..." value={search} onChange={e => setSearch(e.target.value)} />
-          <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>{filtered.length} results</div>
+          <input
+            className="form-control"
+            style={{ maxWidth: 300 }}
+            placeholder="Search questions..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
         </div>
         <div className="table-wrap">
           <table>
@@ -101,26 +131,29 @@ export default function QuestionBank() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((q, i) => (
-                <tr key={q.id}>
-                  <td style={{ color: 'var(--text-muted)' }}>{i + 1}</td>
-                  <td style={{ maxWidth: 340 }}>{q.text}</td>
-                  <td>{q.subject}</td>
-                  <td>
-                    <span className={`badge ${q.difficulty === 'easy' ? 'badge-green' : q.difficulty === 'medium' ? 'badge-yellow' : 'badge-red'}`}>
-                      {q.difficulty}
-                    </span>
-                  </td>
-                  <td><span className="badge badge-blue">{q.correct}</span></td>
-                  <td>
-                    <button className="btn btn-icon btn-sm" onClick={() => handleDelete(q.id)} title="Delete">
-                      <TrashIcon size={14} />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-              {filtered.length === 0 && (
-                <tr><td colSpan={6} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 24 }}>No questions found</td></tr>
+              {loading ? (
+                <tr><td colSpan={6} style={{ textAlign: 'center', padding: 24, color: 'var(--text-muted)' }}>Loading questions...</td></tr>
+              ) : filtered.length === 0 ? (
+                <tr><td colSpan={6} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 32 }}>No questions in the question bank yet. Click "+ Add Question" to create one.</td></tr>
+              ) : (
+                filtered.map((q, i) => (
+                  <tr key={q.id}>
+                    <td style={{ color: 'var(--text-muted)' }}>{i + 1}</td>
+                    <td style={{ maxWidth: 340 }}>{q.text}</td>
+                    <td>{q.subject}</td>
+                    <td>
+                      <span className={`badge ${q.difficulty === 'easy' ? 'badge-green' : q.difficulty === 'medium' ? 'badge-yellow' : 'badge-red'}`}>
+                        {q.difficulty}
+                      </span>
+                    </td>
+                    <td><span className="badge badge-blue">{q.correct}</span></td>
+                    <td>
+                      <button className="btn btn-icon btn-sm" onClick={() => handleDelete(q.id)} title="Delete">
+                        <TrashIcon size={14} />
+                      </button>
+                    </td>
+                  </tr>
+                ))
               )}
             </tbody>
           </table>

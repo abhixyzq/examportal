@@ -1,13 +1,21 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { getStoredExams } from '../data/demo';
+import { api } from '../services/api';
 import { LockIcon, KeyIcon, CloseIcon } from '../components/Icons';
 
 export default function StudentDashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const exams = getStoredExams();
+  const [exams, setExams] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    api.getExams().then(list => {
+      setExams(list || []);
+      setLoading(false);
+    }).catch(() => setLoading(false));
+  }, []);
 
   const [codeModalExam, setCodeModalExam] = useState(null);
   const [enteredCode, setEnteredCode] = useState('');
@@ -66,17 +74,26 @@ export default function StudentDashboard() {
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 720 }}>
-        {exams.map(exam => (
-          <div key={exam.id} className="card card-sm" style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>{exam.title}</div>
-              <div style={{ display: 'flex', gap: 16, fontSize: 12, color: 'var(--text-muted)' }}>
-                <span>{exam.subject}</span>
-                <span>{exam.duration} min</span>
-                <span>{exam.total} questions</span>
-                <span>{exam.date} {exam.time}</span>
+        {loading ? (
+          <div className="card" style={{ textAlign: 'center', padding: 32, color: 'var(--text-muted)' }}>
+            Loading your scheduled exams...
+          </div>
+        ) : exams.length === 0 ? (
+          <div className="card" style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>
+            No examinations currently scheduled. Please check back when your exam starts.
+          </div>
+        ) : (
+          exams.map(exam => (
+            <div key={exam.id} className="card card-sm" style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>{exam.title}</div>
+                <div style={{ display: 'flex', gap: 16, fontSize: 12, color: 'var(--text-muted)' }}>
+                  <span>{exam.subject}</span>
+                  <span>{exam.duration_mins || exam.duration} min</span>
+                  <span>{exam.total_questions || exam.total} questions</span>
+                  <span>{exam.date} {exam.time}</span>
+                </div>
               </div>
-            </div>
             <div className="flex gap-2" style={{ alignItems: 'center' }}>
               {exam.requireCode && (
                 <span className="badge badge-yellow" style={{ fontSize: 11, gap: 4 }}>
@@ -102,7 +119,8 @@ export default function StudentDashboard() {
               )}
             </div>
           </div>
-        ))}
+        ))
+      )}
       </div>
 
       {/* Access Code Verification Modal */}

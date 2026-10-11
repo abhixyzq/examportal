@@ -72,15 +72,6 @@ export function Login() {
           setLoading(false);
           return;
         }
-
-        // Demo fallback if offline
-        const clean = rollNo.trim().toUpperCase();
-        if (clean === '2026-CS-101' || clean === 'ROLL-101') {
-          login({ id: 2, name: 'Rahul Sharma', roll_no: '2026-CS-101', role: 'student' }, 'demo-student-token');
-          navigate('/student');
-        } else {
-          setError(`Roll Number "${clean}" is not found in the approved candidate list!`);
-        }
       } else {
         // Admin Login
         try {
@@ -195,14 +186,6 @@ export function Login() {
             {loading ? 'Verifying...' : (role === 'student' ? 'Verify & Enter Exam Portal' : 'Sign In')}
           </button>
         </form>
-
-        <div style={{ marginTop: 20, padding: '10px 14px', background: 'var(--bg-input)', borderRadius: 'var(--radius-sm)', fontSize: 12, color: 'var(--text-muted)' }}>
-          {role === 'student' ? (
-            <div><strong style={{ color: 'var(--text-sub)' }}>Sample Approved Roll No:</strong> 2026-CS-101, 2026-CS-102</div>
-          ) : (
-            <div><strong style={{ color: 'var(--text-sub)' }}>Demo Admin:</strong> admin@exam.com / admin123</div>
-          )}
-        </div>
       </div>
     </div>
   );

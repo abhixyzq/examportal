@@ -1,6 +1,7 @@
-import { useState } from 'react';
-import { DEMO_EXAMS, getStoredExams, saveStoredExams } from '../data/demo';
+import { useState, useEffect } from 'react';
+import { getStoredExams, saveStoredExams } from '../data/demo';
 import { PlusIcon, CloseIcon, TrashIcon, LockIcon, KeyIcon } from '../components/Icons';
+import { api } from '../services/api';
 
 const generateRandomCode = () => {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -19,42 +20,78 @@ const EMPTY_EXAM = {
 };
 
 export default function ExamManager() {
-  const [exams, setExams] = useState(() => getStoredExams());
+  const [exams, setExams] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(() => ({
     ...EMPTY_EXAM,
     accessCode: generateRandomCode(),
   }));
 
+  const loadExams = async () => {
+    try {
+      const data = await api.getExams();
+      if (Array.isArray(data)) {
+        setExams(data);
+        saveStoredExams(data);
+        setLoading(false);
+        return;
+      }
+    } catch {}
+    const local = getStoredExams();
+    setExams(local || []);
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    loadExams();
+  }, []);
+
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
-  const handleCreate = (e) => {
+  const handleCreate = async (e) => {
     e.preventDefault();
     const finalCode = form.requireCode ? (form.accessCode.trim() || generateRandomCode()) : '';
     const newExam = {
       ...form,
       accessCode: finalCode,
-      id: Date.now(),
-      status: 'active',
+      duration_mins: form.duration,
+      total_questions: form.total,
     };
-    const updated = [newExam, ...exams];
+
+    try {
+      const res = await api.createExam(newExam);
+      if (res?.id) {
+        loadExams();
+        setShowForm(false);
+        setForm({ ...EMPTY_EXAM, accessCode: generateRandomCode() });
+        return;
+      }
+    } catch {}
+
+    const localExam = { ...newExam, id: Date.now(), status: 'active' };
+    const updated = [localExam, ...exams];
     setExams(updated);
     saveStoredExams(updated);
-    setForm({
-      ...EMPTY_EXAM,
-      accessCode: generateRandomCode(),
-    });
+    setForm({ ...EMPTY_EXAM, accessCode: generateRandomCode() });
     setShowForm(false);
   };
 
-  const handleDelete = (id) => {
+  const handleDelete = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this exam?')) return;
+    try {
+      await api.deleteExam(id);
+    } catch {}
     const updated = exams.filter(e => e.id !== id);
     setExams(updated);
     saveStoredExams(updated);
   };
 
-  const toggleLiveResult = (id) => {
-    const updated = exams.map(e => e.id === id ? { ...e, liveResult: !e.liveResult } : e);
+  const toggleLiveResult = async (id) => {
+    try {
+      await api.toggleLiveResult(id);
+    } catch {}
+    const updated = exams.map(e => e.id === id ? { ...e, liveResult: !e.liveResult, live_result: !e.live_result } : e);
     setExams(updated);
     saveStoredExams(updated);
   };
@@ -202,7 +239,14 @@ export default function ExamManager() {
               </tr>
             </thead>
             <tbody>
-              {exams.map(exam => (
+              {exams.length === 0 ? (
+                <tr>
+                  <td colSpan={10} style={{ textAlign: 'center', padding: 32, color: 'var(--text-muted)' }}>
+                    No examinations created yet. Click "+ Create Exam" above to schedule an exam.
+                  </td>
+                </tr>
+              ) : (
+                exams.map(exam => (
                 <tr key={exam.id}>
                   <td style={{ fontWeight: 500 }}>{exam.title}</td>
                   <td>{exam.subject}</td>
@@ -258,7 +302,7 @@ export default function ExamManager() {
                     </button>
                   </td>
                 </tr>
-              ))}
+              )))}
             </tbody>
           </table>
         </div>

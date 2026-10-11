@@ -44,29 +44,12 @@ const DATA_FILE = path.join(__dirname, 'data.json');
 const INITIAL_DATA = {
   users: [
     { id: 1, name: 'Admin', email: 'admin@exam.com', password_hash: '$2a$10$wU2nJt8pZ9mZ0WzJ0gJ8quQ4hY0z1v3wX4y5z6a7b8c9d0e1f2g3h', role: 'admin' },
-    { id: 2, name: 'Rahul Sharma', email: 'student@exam.com', password_hash: '$2a$10$wU2nJt8pZ9mZ0WzJ0gJ8quQ4hY0z1v3wX4y5z6a7b8c9d0e1f2g3h', role: 'student', roll_no: '2026-CS-101' },
   ],
-  questions: [
-    { id: 1, text: 'What is the value of π (pi) to 2 decimal places?', optA: '3.14', optB: '3.41', optC: '3.12', optD: '3.16', correct: 'A', subject: 'Math', difficulty: 'easy' },
-    { id: 2, text: 'Which of the following is Newton\'s Second Law of Motion?', optA: 'F = ma', optB: 'E = mc²', optC: 'v = u + at', optD: 'P = mv', correct: 'A', subject: 'Physics', difficulty: 'easy' },
-    { id: 3, text: 'What is the atomic number of Carbon?', optA: '6', optB: '12', optC: '8', optD: '4', correct: 'A', subject: 'Chemistry', difficulty: 'easy' },
-    { id: 4, text: 'Solve: If 2x + 5 = 17, what is x?', optA: '5', optB: '6', optC: '4', optD: '7', correct: 'B', subject: 'Math', difficulty: 'medium' },
-    { id: 5, text: 'What is the SI unit of Electric Current?', optA: 'Volt', optB: 'Watt', optC: 'Ampere', optD: 'Ohm', correct: 'C', subject: 'Physics', difficulty: 'easy' },
-  ],
-  exams: [
-    { id: 1, title: 'Mathematics Test', subject: 'Math', duration_mins: 60, total_questions: 30, date: '2026-10-15', time: '10:00', status: 'upcoming', proctored: true, live_result: false, shuffle_q: true, shuffle_opt: true, require_code: true, access_code: 'MATH26', max_violations: 3 },
-    { id: 2, title: 'Physics Mid-Term', subject: 'Physics', duration_mins: 90, total_questions: 50, date: '2026-10-11', time: '11:00', status: 'active', proctored: true, live_result: true, shuffle_q: true, shuffle_opt: false, require_code: true, access_code: 'PHYS90', max_violations: 3 },
-    { id: 3, title: 'Chemistry Quiz', subject: 'Chemistry', duration_mins: 30, total_questions: 20, date: '2026-10-05', time: '09:00', status: 'completed', proctored: false, live_result: true, shuffle_q: false, shuffle_opt: false, require_code: false, access_code: '', max_violations: 3 },
-  ],
+  questions: [],
+  exams: [],
   submissions: [],
   violations: [],
-  candidates: [
-    { id: 1, roll_no: '2026-CS-101', name: 'Rahul Sharma', exam_id: null },
-    { id: 2, roll_no: '2026-CS-102', name: 'Priya Patel', exam_id: null },
-    { id: 3, roll_no: '2026-CS-103', name: 'Amit Kumar', exam_id: null },
-    { id: 4, roll_no: '2026-CS-104', name: 'Sneha Singh', exam_id: null },
-    { id: 5, roll_no: '2026-CS-105', name: 'Vikas Verma', exam_id: null },
-  ]
+  candidates: []
 };
 
 function loadLocalStore() {
