@@ -1,20 +1,28 @@
 import { createContext, useContext, useState } from 'react';
+import { invalidateApiCache } from '../services/api';
 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => {
-    const stored = localStorage.getItem('ep_user');
-    return stored ? JSON.parse(stored) : null;
+    try {
+      const stored = localStorage.getItem('ep_user');
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      localStorage.removeItem('ep_user');
+      return null;
+    }
   });
 
   const login = (userData, token) => {
+    invalidateApiCache();
     localStorage.setItem('ep_user', JSON.stringify(userData));
     localStorage.setItem('ep_token', token);
     setUser(userData);
   };
 
   const logout = () => {
+    invalidateApiCache();
     localStorage.removeItem('ep_user');
     localStorage.removeItem('ep_token');
     setUser(null);

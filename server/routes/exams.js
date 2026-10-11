@@ -4,20 +4,29 @@ import { authenticate, requireAdmin } from '../middleware/auth.js';
 
 const router = Router();
 
-// GET /api/exams
+function sanitizeExam(exam, isAdmin) {
+  if (isAdmin || !exam) return exam;
+  const { access_code, accessCode, ...safe } = exam;
+  return safe;
+}
+
+// ── GET /api/exams ────────────────────────────────────────────────────────────
 router.get('/', authenticate, async (req, res) => {
   try {
+    const isAdmin = req.user?.role === 'admin';
     if (db.isPostgres()) {
       const { rows } = await db.query('SELECT * FROM exams ORDER BY id DESC');
-      return res.json(rows);
+      return res.json(rows.map(e => sanitizeExam(e, isAdmin)));
     }
-    res.json(db.store.exams);
+    const list = db.store.exams || [];
+    res.json(list.map(e => sanitizeExam(e, isAdmin)));
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Fetch exams error:', err);
+    res.status(500).json({ error: 'Failed to retrieve exams' });
   }
 });
 
-// POST /api/exams (Create exam)
+// ── POST /api/exams (Create exam) ─────────────────────────────────────────────
 router.post('/', authenticate, requireAdmin, async (req, res) => {
   try {
     const {
@@ -31,6 +40,8 @@ router.post('/', authenticate, requireAdmin, async (req, res) => {
       return res.status(400).json({ error: 'Title, date, and time are required' });
     }
 
+    const cleanAccessCode = String(access_code || '').trim().toUpperCase();
+
     if (db.isPostgres()) {
       const q = `
         INSERT INTO exams (title, subject, duration_mins, total_questions, date, time, status, proctored, live_result, shuffle_q, shuffle_opt, max_violations, require_code, access_code)
@@ -38,9 +49,9 @@ router.post('/', authenticate, requireAdmin, async (req, res) => {
         RETURNING *
       `;
       const { rows } = await db.query(q, [
-        title, subject || 'General', duration_mins, total_questions,
-        date, time, proctored, live_result, shuffle_q, shuffle_opt,
-        max_violations, require_code, access_code.toUpperCase()
+        title, subject || 'General', Number(duration_mins), Number(total_questions),
+        date, time, Boolean(proctored), Boolean(live_result), Boolean(shuffle_q), Boolean(shuffle_opt),
+        Number(max_violations), Boolean(require_code), cleanAccessCode
       ]);
       return res.status(201).json(rows[0]);
     }
@@ -60,21 +71,23 @@ router.post('/', authenticate, requireAdmin, async (req, res) => {
       shuffle_opt: Boolean(shuffle_opt),
       max_violations: Number(max_violations),
       require_code: Boolean(require_code),
-      access_code: (access_code || '').toUpperCase(),
+      access_code: cleanAccessCode,
     };
 
+    if (!db.store.exams) db.store.exams = [];
     db.store.exams.unshift(newExam);
     saveLocalStore();
     res.status(201).json(newExam);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Create exam error:', err);
+    res.status(500).json({ error: 'Failed to create exam' });
   }
 });
 
-// POST /api/exams/:id/verify-code (Verify Exam Hall Access Code)
+// ── POST /api/exams/:id/verify-code ───────────────────────────────────────────
 router.post('/:id/verify-code', authenticate, async (req, res) => {
   try {
-    const examId = parseInt(req.params.id);
+    const examId = Number(req.params.id);
     const { code } = req.body;
 
     let exam = null;
@@ -82,83 +95,83 @@ router.post('/:id/verify-code', authenticate, async (req, res) => {
       const { rows } = await db.query('SELECT * FROM exams WHERE id = $1', [examId]);
       exam = rows[0];
     } else {
-      exam = db.store.exams.find(e => e.id === examId);
+      exam = (db.store.exams || []).find(e => e.id === examId);
     }
 
-    if (!exam) return res.status(404).json({ error: 'Exam not found' });
-
-    if (!exam.require_code && !exam.requireCode) {
-      return res.json({ success: true, message: 'No access code required for this exam' });
+    if (!exam) {
+      return res.status(404).json({ error: 'Exam not found' });
     }
 
-    const targetCode = (exam.access_code || exam.accessCode || '').trim().toUpperCase();
-    const inputCode = (code || '').trim().toUpperCase();
-
-    if (targetCode && inputCode === targetCode) {
-      return res.json({ success: true, verified: true });
+    if (!exam.require_code) {
+      return res.json({ valid: true, message: 'No passcode required' });
     }
 
-    res.status(403).json({ success: false, error: 'Invalid Hall Access Code' });
+    const entered = String(code || '').trim().toUpperCase();
+    const actual = String(exam.access_code || exam.accessCode || '').trim().toUpperCase();
+
+    if (entered && entered === actual) {
+      return res.json({ valid: true, message: 'Passcode verified successfully' });
+    }
+
+    res.status(400).json({ valid: false, error: 'Incorrect Exam Hall Access Code. Please ask the invigilator.' });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Verify code error:', err);
+    res.status(500).json({ error: 'Failed to verify exam access code' });
   }
 });
 
-// PATCH /api/exams/:id/toggle-result
+// ── PATCH /api/exams/:id/toggle-result ────────────────────────────────────────
 router.patch('/:id/toggle-result', authenticate, requireAdmin, async (req, res) => {
   try {
-    const id = parseInt(req.params.id);
+    const examId = Number(req.params.id);
     if (db.isPostgres()) {
-      const { rows } = await db.query('UPDATE exams SET live_result = NOT live_result WHERE id = $1 RETURNING *', [id]);
+      const { rows } = await db.query('UPDATE exams SET live_result = NOT live_result WHERE id = $1 RETURNING *', [examId]);
       return res.json(rows[0]);
     }
-    const ex = db.store.exams.find(e => e.id === id);
-    if (ex) {
-      ex.live_result = !ex.live_result;
-      if (ex.liveResult !== undefined) ex.liveResult = ex.live_result;
-      saveLocalStore();
-      return res.json(ex);
-    }
-    res.status(404).json({ error: 'Exam not found' });
+    const exam = (db.store.exams || []).find(e => e.id === examId);
+    if (!exam) return res.status(404).json({ error: 'Exam not found' });
+    exam.live_result = !exam.live_result;
+    saveLocalStore();
+    res.json(exam);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Toggle live result error:', err);
+    res.status(500).json({ error: 'Failed to update exam setting' });
   }
 });
 
-// PATCH /api/exams/:id/toggle-code
+// ── PATCH /api/exams/:id/toggle-code ──────────────────────────────────────────
 router.patch('/:id/toggle-code', authenticate, requireAdmin, async (req, res) => {
   try {
-    const id = parseInt(req.params.id);
+    const examId = Number(req.params.id);
     if (db.isPostgres()) {
-      const { rows } = await db.query('UPDATE exams SET require_code = NOT require_code WHERE id = $1 RETURNING *', [id]);
+      const { rows } = await db.query('UPDATE exams SET require_code = NOT require_code WHERE id = $1 RETURNING *', [examId]);
       return res.json(rows[0]);
     }
-    const ex = db.store.exams.find(e => e.id === id);
-    if (ex) {
-      ex.require_code = !ex.require_code;
-      if (ex.requireCode !== undefined) ex.requireCode = ex.require_code;
-      saveLocalStore();
-      return res.json(ex);
-    }
-    res.status(404).json({ error: 'Exam not found' });
+    const exam = (db.store.exams || []).find(e => e.id === examId);
+    if (!exam) return res.status(404).json({ error: 'Exam not found' });
+    exam.require_code = !exam.require_code;
+    saveLocalStore();
+    res.json(exam);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Toggle require code error:', err);
+    res.status(500).json({ error: 'Failed to update access code setting' });
   }
 });
 
-// DELETE /api/exams/:id
+// ── DELETE /api/exams/:id ─────────────────────────────────────────────────────
 router.delete('/:id', authenticate, requireAdmin, async (req, res) => {
   try {
-    const id = parseInt(req.params.id);
+    const examId = Number(req.params.id);
     if (db.isPostgres()) {
-      await db.query('DELETE FROM exams WHERE id = $1', [id]);
+      await db.query('DELETE FROM exams WHERE id = $1', [examId]);
       return res.json({ success: true });
     }
-    db.store.exams = db.store.exams.filter(e => e.id !== id);
+    db.store.exams = (db.store.exams || []).filter(e => e.id !== examId);
     saveLocalStore();
     res.json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Delete exam error:', err);
+    res.status(500).json({ error: 'Failed to delete exam' });
   }
 });
 

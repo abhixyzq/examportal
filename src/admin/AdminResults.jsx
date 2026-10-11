@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { api } from '../services/api';
-import { DownloadIcon } from '../components/Icons';
 
 export default function AdminResults() {
   const [exams, setExams] = useState([]);

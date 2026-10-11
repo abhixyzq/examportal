@@ -1,6 +1,14 @@
 import jwt from 'jsonwebtoken';
 
-export const JWT_SECRET = process.env.JWT_SECRET || 'exam_portal_super_secret_jwt_key_2026';
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('FATAL: JWT_SECRET environment variable is not set in production!');
+  }
+  console.warn('⚠️  JWT_SECRET not set. Using insecure default for local development only.');
+}
+export { JWT_SECRET };
+const _secret = JWT_SECRET || 'dev_only_insecure_secret_do_not_use_in_prod';
 
 export function authenticate(req, res, next) {
   const header = req.headers.authorization;
@@ -8,12 +16,12 @@ export function authenticate(req, res, next) {
     return res.status(401).json({ error: 'Access token required' });
   }
 
-  const token = header.split(' ')[1];
+  const token = header.slice(7);
   try {
-    const payload = jwt.verify(token, JWT_SECRET);
+    const payload = jwt.verify(token, _secret);
     req.user = payload;
     next();
-  } catch (err) {
+  } catch {
     return res.status(401).json({ error: 'Invalid or expired token' });
   }
 }

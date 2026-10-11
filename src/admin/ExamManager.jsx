@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { PlusIcon, CloseIcon, TrashIcon, LockIcon, KeyIcon, QuestionsIcon } from '../components/Icons';
+import { PlusIcon, CloseIcon, TrashIcon, LockIcon, QuestionsIcon } from '../components/Icons';
 import { api } from '../services/api';
 
 const generateRandomCode = () => {
@@ -23,7 +23,6 @@ export default function ExamManager() {
   const navigate = useNavigate();
   const [exams, setExams] = useState([]);
   const [questions, setQuestions] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(() => ({
     ...EMPTY_EXAM,

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { CloseIcon, ShieldIcon } from '../components/Icons';
+import { CloseIcon } from '../components/Icons';
 import { getSocket } from '../services/socket';
 import { api } from '../services/api';
 
@@ -171,6 +171,7 @@ export default function LiveMonitor() {
                 ['Progress', `${selected.answered}/${selected.total}`],
                 ['Time Left', selected.timeLeft],
                 ['Violations', selected.violations],
+                ['Last Flag', selected.recentViolation ? (VIOLATION_NAMES[selected.recentViolation] || selected.recentViolation) : 'None'],
                 ['Status', selected.status],
               ].map(([k, v]) => (
                 <div className="meta-row" key={k} style={{ padding: '5px 0', borderBottom: '1px solid var(--border)' }}>

@@ -3,17 +3,17 @@ import pg from 'pg';
 const { Pool } = pg;
 
 function getConnectionString() {
-  if (process.env.POSTGRES_URL) return process.env.POSTGRES_URL;
-  if (process.env.DATABASE_URL) return process.env.DATABASE_URL;
-  if (process.env.STORAGE_URL) return process.env.STORAGE_URL;
-  if (process.env.STORAGE_DATABASE_URL) return process.env.STORAGE_DATABASE_URL;
-  if (process.env.STORAGE_POSTGRES_URL) return process.env.STORAGE_POSTGRES_URL;
-  for (const [key, val] of Object.entries(process.env)) {
-    if (typeof val === 'string' && val.startsWith('postgres')) {
-      return val;
-    }
-  }
-  return null;
+  return (
+    process.env.POSTGRES_URL ||
+    process.env.DATABASE_URL ||
+    process.env.SUPABASE_DB_URL ||
+    process.env.POSTGRES_PRISMA_URL ||
+    process.env.POSTGRES_URL_NON_POOLING ||
+    process.env.STORAGE_URL ||
+    process.env.STORAGE_DATABASE_URL ||
+    process.env.STORAGE_POSTGRES_URL ||
+    null
+  );
 }
 
 let pool = null;
@@ -48,7 +48,13 @@ function getPool() {
 // Clean production in-memory store
 const store = {
   users: [
-    { id: 1, name: 'Admin', email: 'admin@exam.com', role: 'admin' },
+    {
+      id: 1,
+      name: 'Admin',
+      email: 'admin@exam.com',
+      password_hash: '$2b$10$RShDJ0.pDgOpVgH20pvBBewfqZbUfq/i.MVhql7Tyg4h4xqe8IfuC',
+      role: 'admin',
+    },
   ],
   questions: [],
   exams: [],

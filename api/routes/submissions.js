@@ -1,21 +1,43 @@
 import { Router } from 'express';
 import { db, ensureSchema } from '../db.js';
-import { authenticate } from '../middleware/auth.js';
+import { authenticate, requireAdmin } from '../middleware/auth.js';
 
 const router = Router();
 
-// POST /api/submissions (Submit exam answers)
+// ── Shared Answer Matching Helper ─────────────────────────────────────────────
+function normalizeAnswer(val) {
+  if (!val) return [];
+  if (Array.isArray(val)) {
+    return val.map(s => String(s).trim().toUpperCase()).filter(Boolean).sort();
+  }
+  return String(val).split(',').map(s => s.trim().toUpperCase()).filter(Boolean).sort();
+}
+
+function isMatch(studentAns, correctVal) {
+  if (!studentAns || !correctVal) return false;
+  const s = normalizeAnswer(studentAns);
+  const c = normalizeAnswer(correctVal);
+  if (s.length === 0 || c.length === 0 || s.length !== c.length) return false;
+  return s.every((v, i) => v === c[i]);
+}
+
+// ── POST /api/submissions (Submit exam answers) ───────────────────────────────
 router.post('/', authenticate, async (req, res) => {
   try {
     await ensureSchema();
     const { examId, answers = {}, autoSubmitted = false, violationsCount = 0 } = req.body;
     const userId = req.user.id;
+    const numExamId = Number(examId);
+
+    if (!numExamId) {
+      return res.status(400).json({ error: 'Valid exam ID is required' });
+    }
 
     // Reject if candidate has already submitted this exam and hasn't been reset
     if (db.isPostgres()) {
       const existing = await db.query(
         'SELECT id FROM exam_submissions WHERE exam_id = $1 AND user_id = $2',
-        [Number(examId), Number(userId)]
+        [numExamId, Number(userId)]
       );
       if (existing.rows.length > 0) {
         return res.status(403).json({
@@ -24,7 +46,7 @@ router.post('/', authenticate, async (req, res) => {
       }
     } else {
       const existing = (db.store.submissions || []).find(
-        s => Number(s.exam_id) === Number(examId) && Number(s.user_id) === Number(userId)
+        s => Number(s.exam_id) === numExamId && Number(s.user_id) === Number(userId)
       );
       if (existing) {
         return res.status(403).json({
@@ -38,48 +60,34 @@ router.post('/', authenticate, async (req, res) => {
     if (db.isPostgres()) {
       const qRes = await db.query(
         'SELECT * FROM questions WHERE exam_id = $1 ORDER BY id ASC',
-        [Number(examId)]
+        [numExamId]
       );
       questions = qRes.rows;
       if (questions.length === 0) {
-        // Fallback to all questions if none explicitly mapped
         const allRes = await db.query('SELECT * FROM questions ORDER BY id ASC');
         questions = allRes.rows;
       }
     } else {
-      questions = (db.store.questions || []).filter(q => Number(q.exam_id) === Number(examId));
+      questions = (db.store.questions || []).filter(q => Number(q.exam_id) === numExamId);
       if (questions.length === 0) questions = db.store.questions || [];
     }
 
-    function isMatch(studentAns, correctVal) {
-      if (!studentAns || !correctVal) return false;
-      const normalize = (val) => {
-        if (Array.isArray(val)) return val.map(s => String(s).trim().toUpperCase()).filter(Boolean).sort();
-        return String(val).split(',').map(s => s.trim().toUpperCase()).filter(Boolean).sort();
-      };
-      const s = normalize(studentAns);
-      const c = normalize(correctVal);
-      if (s.length === 0 || c.length === 0 || s.length !== c.length) return false;
-      return s.every((v, i) => v === c[i]);
-    }
-
     let correctCount = 0;
-    const totalQuestions = questions.length || 1;
+    const totalQuestions = questions.length;
 
     questions.forEach(q => {
       const studentAns = answers[q.id];
-      const correctVal = q.correct;
-      if (isMatch(studentAns, correctVal)) {
+      if (isMatch(studentAns, q.correct)) {
         correctCount += 1;
       }
     });
 
-    const percentage = Math.round((correctCount / totalQuestions) * 100);
+    const percentage = totalQuestions > 0 ? Math.round((correctCount / totalQuestions) * 100) : 0;
     const passed = percentage >= 60;
 
     const submissionData = {
       id: Date.now(),
-      exam_id: Number(examId),
+      exam_id: numExamId,
       user_id: Number(userId),
       user_name: req.user.name,
       user_email: req.user.email,
@@ -97,7 +105,7 @@ router.post('/', authenticate, async (req, res) => {
     let liveResult = false;
     let examTitle = '';
     if (db.isPostgres()) {
-      const eRes = await db.query('SELECT title, live_result FROM exams WHERE id = $1', [Number(examId)]);
+      const eRes = await db.query('SELECT title, live_result FROM exams WHERE id = $1', [numExamId]);
       if (eRes.rows.length > 0) {
         liveResult = Boolean(eRes.rows[0].live_result);
         examTitle = eRes.rows[0].title;
@@ -109,6 +117,7 @@ router.post('/', authenticate, async (req, res) => {
         ON CONFLICT (exam_id, user_id) DO UPDATE SET
           answers = EXCLUDED.answers,
           score = EXCLUDED.score,
+          total_questions = EXCLUDED.total_questions,
           percentage = EXCLUDED.percentage,
           passed = EXCLUDED.passed,
           violations_count = EXCLUDED.violations_count,
@@ -118,7 +127,7 @@ router.post('/', authenticate, async (req, res) => {
         RETURNING *
       `;
       const { rows } = await db.query(q, [
-        Number(examId), Number(userId), JSON.stringify(answers), correctCount, totalQuestions,
+        numExamId, Number(userId), JSON.stringify(answers), correctCount, totalQuestions,
         percentage, passed, Number(violationsCount) || 0, Boolean(autoSubmitted)
       ]);
       return res.status(201).json({
@@ -129,13 +138,16 @@ router.post('/', authenticate, async (req, res) => {
       });
     }
 
-    const ex = (db.store.exams || []).find(e => e.id === Number(examId));
+    const ex = (db.store.exams || []).find(e => e.id === numExamId);
     if (ex) {
       liveResult = Boolean(ex.live_result || ex.liveResult);
       examTitle = ex.title;
     }
 
-    const existingIdx = db.store.submissions.findIndex(s => Number(s.exam_id) === Number(examId) && Number(s.user_id) === Number(userId));
+    if (!db.store.submissions) db.store.submissions = [];
+    const existingIdx = db.store.submissions.findIndex(
+      s => Number(s.exam_id) === numExamId && Number(s.user_id) === Number(userId)
+    );
     const fullSubmissionData = {
       ...submissionData,
       live_result: liveResult,
@@ -151,12 +163,13 @@ router.post('/', authenticate, async (req, res) => {
 
     res.status(201).json(fullSubmissionData);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Submit exam error:', err);
+    res.status(500).json({ error: 'Failed to record exam submission' });
   }
 });
 
-// GET /api/submissions/results/:examId (Admin view results)
-router.get('/results/:examId', authenticate, async (req, res) => {
+// ── GET /api/submissions/results/:examId (Admin view results only) ────────────
+router.get('/results/:examId', authenticate, requireAdmin, async (req, res) => {
   try {
     await ensureSchema();
     const examId = Number(req.params.examId);
@@ -178,11 +191,12 @@ router.get('/results/:examId', authenticate, async (req, res) => {
     const results = (db.store.submissions || []).filter(s => Number(s.exam_id) === examId);
     res.json(results);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Fetch results error:', err);
+    res.status(500).json({ error: 'Failed to retrieve exam results' });
   }
 });
 
-// GET /api/submissions/my-results (Student view own result)
+// ── GET /api/submissions/my-results (Student view own result) ─────────────────
 router.get('/my-results', authenticate, async (req, res) => {
   try {
     await ensureSchema();
@@ -198,19 +212,17 @@ router.get('/my-results', authenticate, async (req, res) => {
       const { rows } = await db.query(q, [userId]);
       return res.json(rows);
     }
-    const mySubmissions = db.store.submissions.filter(s => s.user_id === userId);
+    const mySubmissions = (db.store.submissions || []).filter(s => s.user_id === userId);
     res.json(mySubmissions);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Fetch my-results error:', err);
+    res.status(500).json({ error: 'Failed to retrieve your results' });
   }
 });
 
-// POST /api/submissions/reset (Admin resets a candidate's exam submission)
-router.post('/reset', authenticate, async (req, res) => {
+// ── POST /api/submissions/reset (Admin resets a candidate's exam submission) ──
+router.post('/reset', authenticate, requireAdmin, async (req, res) => {
   try {
-    if (req.user?.role !== 'admin') {
-      return res.status(403).json({ error: 'Admin privileges required' });
-    }
     await ensureSchema();
     const { submissionId, examId, userId } = req.body;
     if (db.isPostgres()) {
@@ -225,16 +237,18 @@ router.post('/reset', authenticate, async (req, res) => {
       return res.json({ success: true, message: 'Candidate exam successfully reset.' });
     }
 
+    if (!db.store.submissions) db.store.submissions = [];
     if (submissionId) {
-      db.store.submissions = (db.store.submissions || []).filter(s => s.id !== Number(submissionId));
+      db.store.submissions = db.store.submissions.filter(s => s.id !== Number(submissionId));
     } else if (examId && userId) {
-      db.store.submissions = (db.store.submissions || []).filter(
+      db.store.submissions = db.store.submissions.filter(
         s => !(Number(s.exam_id) === Number(examId) && Number(s.user_id) === Number(userId))
       );
     }
     res.json({ success: true, message: 'Candidate exam successfully reset.' });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Reset submission error:', err);
+    res.status(500).json({ error: 'Failed to reset exam submission' });
   }
 });
 

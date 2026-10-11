@@ -4,7 +4,7 @@ import { authenticate, requireAdmin } from '../middleware/auth.js';
 
 const router = Router();
 
-// GET /api/candidates (List candidates)
+// ── GET /api/candidates (List candidates) ─────────────────────────────────────
 router.get('/', authenticate, requireAdmin, async (req, res) => {
   try {
     await ensureSchema();
@@ -26,27 +26,28 @@ router.get('/', authenticate, requireAdmin, async (req, res) => {
       return res.json(rows);
     }
 
-    let list = db.store.candidates;
+    let list = db.store.candidates || [];
     if (examId && examId !== 'all') {
       list = list.filter(c => !c.exam_id || c.exam_id === Number(examId));
     }
     res.json(list);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Fetch candidates error:', err);
+    res.status(500).json({ error: 'Failed to retrieve candidates' });
   }
 });
 
-// POST /api/candidates (Add single candidate)
+// ── POST /api/candidates (Add single candidate) ───────────────────────────────
 router.post('/', authenticate, requireAdmin, async (req, res) => {
   try {
     await ensureSchema();
     const { roll_no, name, exam_id } = req.body;
-    if (!roll_no || !name) {
-      return res.status(400).json({ error: 'Roll number and student name are required' });
+    if (!roll_no || !String(roll_no).trim() || !name || !String(name).trim()) {
+      return res.status(400).json({ error: 'Roll number and candidate name are required' });
     }
 
-    const cleanRoll = roll_no.trim().toUpperCase();
-    const cleanName = name.trim();
+    const cleanRoll = String(roll_no).trim().toUpperCase();
+    const cleanName = String(name).trim();
     const examIdVal = exam_id ? Number(exam_id) : null;
 
     if (db.isPostgres()) {
@@ -66,14 +67,16 @@ router.post('/', authenticate, requireAdmin, async (req, res) => {
       exam_id: examIdVal,
       created_at: new Date().toISOString()
     };
+    if (!db.store.candidates) db.store.candidates = [];
     db.store.candidates.unshift(newCandidate);
     res.status(201).json(newCandidate);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Create candidate error:', err);
+    res.status(500).json({ error: 'Failed to add candidate' });
   }
 });
 
-// POST /api/candidates/bulk (Bulk import candidates from CSV / pasted roster)
+// ── POST /api/candidates/bulk (Bulk import candidates) ────────────────────────
 router.post('/bulk', authenticate, requireAdmin, async (req, res) => {
   try {
     await ensureSchema();
@@ -84,60 +87,85 @@ router.post('/bulk', authenticate, requireAdmin, async (req, res) => {
     }
 
     const examIdVal = exam_id ? Number(exam_id) : null;
-    const inserted = [];
+    const validList = [];
+
+    for (const c of candidates) {
+      if (!c.roll_no || !c.name) continue;
+      const cleanRoll = String(c.roll_no).trim().toUpperCase();
+      const cleanName = String(c.name).trim();
+      if (!cleanRoll || !cleanName) continue;
+      validList.push({ roll_no: cleanRoll, name: cleanName, exam_id: examIdVal });
+    }
+
+    if (validList.length === 0) {
+      return res.status(400).json({ error: 'No valid candidate entries provided' });
+    }
 
     if (db.isPostgres()) {
-      for (const c of candidates) {
-        if (!c.roll_no || !c.name) continue;
-        const cleanRoll = String(c.roll_no).trim().toUpperCase();
-        const cleanName = String(c.name).trim();
-        const ins = await db.query(
-          `INSERT INTO candidates (roll_no, name, exam_id)
-           VALUES ($1, $2, $3)
-           RETURNING *`,
-          [cleanRoll, cleanName, examIdVal]
-        );
-        inserted.push(ins.rows[0]);
+      const inserted = [];
+      const CHUNK_SIZE = 100;
+      for (let i = 0; i < validList.length; i += CHUNK_SIZE) {
+        const chunk = validList.slice(i, i + CHUNK_SIZE);
+        const valueClauses = [];
+        const params = [];
+        let pIdx = 1;
+
+        for (const item of chunk) {
+          valueClauses.push(`($${pIdx}, $${pIdx + 1}, $${pIdx + 2})`);
+          params.push(item.roll_no, item.name, item.exam_id);
+          pIdx += 3;
+        }
+
+        const query = `
+          INSERT INTO candidates (roll_no, name, exam_id)
+          VALUES ${valueClauses.join(', ')}
+          RETURNING *
+        `;
+        const { rows } = await db.query(query, params);
+        inserted.push(...rows);
       }
       return res.status(201).json({ count: inserted.length, candidates: inserted });
     }
 
-    candidates.forEach((c, idx) => {
-      if (!c.roll_no || !c.name) return;
-      const cleanRoll = String(c.roll_no).trim().toUpperCase();
-      const cleanName = String(c.name).trim();
-      const newC = {
-        id: Date.now() + idx,
-        roll_no: cleanRoll,
-        name: cleanName,
-        exam_id: examIdVal,
-        created_at: new Date().toISOString()
-      };
-      db.store.candidates.unshift(newC);
-      inserted.push(newC);
-    });
+    const now = Date.now();
+    const added = validList.map((item, idx) => ({
+      id: now + idx,
+      roll_no: item.roll_no,
+      name: item.name,
+      exam_id: item.exam_id,
+      created_at: new Date().toISOString()
+    }));
 
-    res.status(201).json({ count: inserted.length, candidates: inserted });
+    if (!db.store.candidates) db.store.candidates = [];
+    db.store.candidates.unshift(...added);
+    res.status(201).json({ count: added.length, candidates: added });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Bulk candidates import error:', err);
+    res.status(500).json({ error: 'Failed to import candidates roster' });
   }
 });
 
-// DELETE /api/candidates/:id (Remove a candidate)
+// ── DELETE /api/candidates/:id ────────────────────────────────────────────────
 router.delete('/:id', authenticate, requireAdmin, async (req, res) => {
   try {
     await ensureSchema();
     const id = Number(req.params.id);
+    if (!id) {
+      return res.status(400).json({ error: 'Invalid candidate ID' });
+    }
 
     if (db.isPostgres()) {
       await db.query('DELETE FROM candidates WHERE id = $1', [id]);
       return res.json({ success: true });
     }
 
-    db.store.candidates = db.store.candidates.filter(c => c.id !== id);
+    if (db.store.candidates) {
+      db.store.candidates = db.store.candidates.filter(c => c.id !== id);
+    }
     res.json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Delete candidate error:', err);
+    res.status(500).json({ error: 'Failed to delete candidate' });
   }
 });
 

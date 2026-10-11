@@ -11,12 +11,24 @@ if (!global.__activeStudents) {
 }
 const activeStudents = global.__activeStudents;
 
-// POST /api/monitor/heartbeat
+// Periodic cleanup of stale sessions older than 30 minutes
+function purgeStaleSessions() {
+  const cutoff = Date.now() - 1800000;
+  for (const [key, student] of activeStudents.entries()) {
+    if (student.lastHeartbeat && student.lastHeartbeat < cutoff) {
+      activeStudents.delete(key);
+    }
+  }
+}
+
+// ── POST /api/monitor/heartbeat ───────────────────────────────────────────────
 router.post('/heartbeat', authenticate, async (req, res) => {
   try {
     const { examId, answered = 0, timeLeft = '00:00', total = 20 } = req.body;
     const studentId = req.user.id;
     const key = `${examId}_${studentId}`;
+
+    purgeStaleSessions();
 
     const existing = activeStudents.get(key) || {
       id: studentId,
@@ -31,9 +43,9 @@ router.post('/heartbeat', authenticate, async (req, res) => {
 
     activeStudents.set(key, {
       ...existing,
-      answered,
-      timeLeft,
-      total,
+      answered: Number(answered) || 0,
+      timeLeft: String(timeLeft).slice(0, 10),
+      total: Number(total) || 20,
       lastHeartbeat: Date.now(),
       status: existing.status === 'disqualified' ? 'disqualified' : 'active',
     });
@@ -43,11 +55,12 @@ router.post('/heartbeat', authenticate, async (req, res) => {
       disqualified: existing.status === 'disqualified',
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Monitor heartbeat error:', err);
+    res.status(500).json({ error: 'Failed to record heartbeat' });
   }
 });
 
-// POST /api/monitor/violation
+// ── POST /api/monitor/violation ───────────────────────────────────────────────
 router.post('/violation', authenticate, async (req, res) => {
   try {
     await ensureSchema();
@@ -73,7 +86,7 @@ router.post('/violation', authenticate, async (req, res) => {
     activeStudents.set(key, {
       ...current,
       violations: newViolations,
-      recentViolation: violationType,
+      recentViolation: String(violationType || 'unknown').slice(0, 50),
       lastHeartbeat: Date.now(),
       status: isAutoDisqualified ? 'disqualified' : current.status,
     });
@@ -82,7 +95,7 @@ router.post('/violation', authenticate, async (req, res) => {
       try {
         await db.query(
           'INSERT INTO violations_log (exam_id, user_id, violation_type) VALUES ($1, $2, $3)',
-          [examId, studentId, violationType]
+          [Number(examId), Number(studentId), String(violationType || 'unknown').slice(0, 50)]
         );
       } catch (err) {
         console.warn('Postgres violation insert warning:', err.message);
@@ -94,20 +107,21 @@ router.post('/violation', authenticate, async (req, res) => {
       disqualified: isAutoDisqualified,
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Monitor violation error:', err);
+    res.status(500).json({ error: 'Failed to record proctoring violation' });
   }
 });
 
-// GET /api/monitor/live (Admin fetch active live students)
+// ── GET /api/monitor/live (Admin fetch active live students) ──────────────────
 router.get('/live', authenticate, requireAdmin, (req, res) => {
   try {
-    const examId = Number(req.query.examId) || 2;
+    const examId = Number(req.query.examId);
     const now = Date.now();
     const result = [];
 
-    for (const [key, student] of activeStudents.entries()) {
-      if (Number(student.examId) === examId) {
-        // If no heartbeat for > 45 seconds, mark as reconnecting/idle
+    for (const [, student] of activeStudents.entries()) {
+      if (!examId || Number(student.examId) === examId) {
+        // If no heartbeat for > 45 seconds, mark as offline
         const isOffline = (now - student.lastHeartbeat) > 45000;
         result.push({
           ...student,
@@ -125,11 +139,12 @@ router.get('/live', authenticate, requireAdmin, (req, res) => {
       serverTime: new Date().toISOString(),
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Monitor live error:', err);
+    res.status(500).json({ error: 'Failed to retrieve live monitor data' });
   }
 });
 
-// POST /api/monitor/disqualify (Admin manually disqualifies a student)
+// ── POST /api/monitor/disqualify (Admin manually disqualifies a student) ──────
 router.post('/disqualify', authenticate, requireAdmin, (req, res) => {
   try {
     const { examId, studentId } = req.body;
@@ -143,11 +158,12 @@ router.post('/disqualify', authenticate, requireAdmin, (req, res) => {
 
     res.json({ success: true, message: 'Student disqualified' });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Monitor disqualify error:', err);
+    res.status(500).json({ error: 'Failed to disqualify student' });
   }
 });
 
-// GET /api/monitor/status (Student checks if invigilator has sent a command)
+// ── GET /api/monitor/status (Student checks if invigilator took action) ────────
 router.get('/status', authenticate, (req, res) => {
   try {
     const examId = Number(req.query.examId);
@@ -160,7 +176,8 @@ router.get('/status', authenticate, (req, res) => {
       status: student?.status || 'active',
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Monitor status error:', err);
+    res.status(500).json({ error: 'Failed to retrieve monitor status' });
   }
 });
 

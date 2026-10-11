@@ -45,7 +45,7 @@ const DATA_FILE = path.join(__dirname, 'data.json');
 
 const INITIAL_DATA = {
   users: [
-    { id: 1, name: 'Admin', email: 'admin@exam.com', password_hash: '$2a$10$wU2nJt8pZ9mZ0WzJ0gJ8quQ4hY0z1v3wX4y5z6a7b8c9d0e1f2g3h', role: 'admin' },
+    { id: 1, name: 'Admin', email: 'admin@exam.com', password_hash: '$2b$10$RShDJ0.pDgOpVgH20pvBBewfqZbUfq/i.MVhql7Tyg4h4xqe8IfuC', role: 'admin' },
   ],
   questions: [],
   exams: [],
@@ -86,7 +86,9 @@ export const db = {
     }
     throw new Error('Postgres not connected');
   },
-  
+  get pool() {
+    return pool;
+  },
   // In-memory accessors for zero-friction local run
   store: memoryStore,
 };

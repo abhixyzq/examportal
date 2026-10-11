@@ -5,7 +5,7 @@ import { useProctoring } from '../hooks/useProctoring';
 import { ViolationWarning } from '../pages/Login';
 import ThemeToggle from '../components/ThemeToggle';
 import QuestionDisplay from '../components/QuestionDisplay';
-import { ClockIcon, ShieldIcon, LockIcon, KeyIcon, CloseIcon } from '../components/Icons';
+import { ClockIcon, ShieldIcon, LockIcon, CloseIcon } from '../components/Icons';
 import { getSocket } from '../services/socket';
 import { api } from '../services/api';
 
@@ -27,11 +27,14 @@ export default function ExamRoom() {
   const { id } = useParams();
   const [currentExam, setCurrentExam] = useState(null);
   const [questions, setQuestions] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [showMobileNav, setShowMobileNav] = useState(false);
-
-
   const [alreadySubmitted, setAlreadySubmitted] = useState(false);
+  const [hasStarted, setHasStarted] = useState(false);
+  const [current, setCurrent] = useState(0);
+  const [answers, setAnswers] = useState({});
+  const [secondsLeft, setSecondsLeft] = useState(3600);
+  const [submitted, setSubmitted] = useState(false);
+  const [confirmSubmit, setConfirmSubmit] = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -51,16 +54,8 @@ export default function ExamRoom() {
       if (found?.duration_mins || found?.duration) {
         setSecondsLeft((found.duration_mins || found.duration) * 60);
       }
-      setLoading(false);
     });
   }, [id]);
-
-  const [hasStarted, setHasStarted] = useState(false);
-  const [current, setCurrent] = useState(0);
-  const [answers, setAnswers] = useState({});
-  const [secondsLeft, setSecondsLeft] = useState(3600);
-  const [submitted, setSubmitted] = useState(false);
-  const [confirmSubmit, setConfirmSubmit] = useState(false);
 
   // Access Code check
   const requiresCode = Boolean(currentExam?.requireCode || currentExam?.require_code);

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { api } from '../services/api';
-import { PlusIcon, TrashIcon, UploadIcon, UsersIcon, CloseIcon } from '../components/Icons';
+import { PlusIcon, TrashIcon, UploadIcon, CloseIcon } from '../components/Icons';
 
 export default function CandidateManager() {
   const [candidates, setCandidates] = useState([]);
