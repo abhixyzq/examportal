@@ -152,15 +152,39 @@ function renderInlineSegments(text) {
 export function parseQuestionContent(rawText) {
   if (!rawText) return [];
 
-  // Normalize literal "\n" into real newlines if user imported CSV with escaped \n
-  let normalized = rawText;
-  if (!normalized.includes('\n') && normalized.includes('\\n')) {
-    normalized = normalized.replace(/\\n/g, '\n');
+  let text = String(rawText).trim();
+
+  // Check 1: Parentheses code at end of question e.g. "What will this code print? (int a = 4, ...)"
+  const parenMatch = text.match(/^(.*?)[ \t]*\(\s*((?:(?:int|float|double|char|void|long|short|unsigned)\s+[a-zA-Z0-9_*&]+|printf|scanf|for\s*\(|while\s*\(|#include|switch\s*\().*)\)\s*$/s);
+  if (parenMatch) {
+    return [
+      { type: 'text', content: parenMatch[1].trim() },
+      { type: 'code', content: parenMatch[2].trim(), language: 'C' }
+    ];
   }
 
-  // 1. If explicit markdown code block is used
-  if (normalized.includes('```')) {
-    const segments = normalized.split(/(```[\s\S]*?```)/g);
+  // Check 2: Same-line code after question mark or colon e.g. "What will her code print? int a = 7, b = 2; printf(...);"
+  const sameLineMatch = text.match(/^(.*?[?:])\s+((?:(?:int|float|double|char|void|long|short|unsigned)\s+[a-zA-Z0-9_*&]+|printf|scanf|#include)\s*.*[;}])\s*$/s);
+  if (sameLineMatch) {
+    return [
+      { type: 'text', content: sameLineMatch[1].trim() },
+      { type: 'code', content: sameLineMatch[2].trim(), language: 'C' }
+    ];
+  }
+
+  // Normalize literal "\n" line breaks in single-line strings without corrupting \n inside "quotes"
+  if (!text.includes('\n') && (text.includes('\\n') || text.includes('\\r\\n'))) {
+    text = text
+      .replace(/\\r\\n/g, '\n')
+      .replace(/\\n(?=(?:#include|int|float|double|char|void|printf|scanf|for|while|if|switch|return|\/\/|\{|\}|case|do))/g, '\n')
+      .replace(/;\s*\\n/g, ';\n')
+      .replace(/\{\s*\\n/g, '{\n')
+      .replace(/\}\s*\\n/g, '}\n');
+  }
+
+  // Check 3: Markdown code blocks ``` ... ```
+  if (text.includes('```')) {
+    const segments = text.split(/(```[\s\S]*?```)/g);
     return segments.map(seg => {
       if (seg.startsWith('```') && seg.endsWith('```')) {
         const lines = seg.slice(3, -3).trim().split('\n');
@@ -174,40 +198,60 @@ export function parseQuestionContent(rawText) {
     }).filter(s => Boolean(s.content));
   }
 
-  // 2. Intelligent line-by-line code detector
-  const lines = normalized.split('\n');
+  // Check 4: Multi-line analysis with state tracking
+  const lines = text.split('\n');
   const blocks = [];
-  let currentBlock = { type: null, lines: [] };
+  let currentType = null;
+  let currentLines = [];
+  let openBraces = 0;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    const isCode = isCodeLine(line);
+    const trimmed = line.trim();
+    
+    // Count braces
+    const openInLine = (line.match(/\{/g) || []).length;
+    const closeInLine = (line.match(/\}/g) || []).length;
+
+    let isCode = isCodeLine(line);
+
+    // If currently inside a code block:
+    if (currentType === 'code') {
+      if (openBraces > 0 || isCode || !trimmed || /^[a-zA-Z0-9_]+\s*\(.*?\);?/.test(trimmed) || /;\s*$/.test(trimmed) || /^[\s\t]+/.test(line)) {
+        // Continue code block unless it clearly is an English question sentence
+        if (/^[A-Z][a-z]+.*\?\s*$/.test(trimmed) && !trimmed.includes(';') && openBraces === 0) {
+          isCode = false;
+        } else {
+          isCode = true;
+        }
+      }
+    }
+
+    openBraces += openInLine - closeInLine;
+    if (openBraces < 0) openBraces = 0;
+
     const lineType = isCode ? 'code' : 'text';
 
-    if (currentBlock.type === null) {
-      currentBlock.type = lineType;
-      currentBlock.lines.push(line);
-    } else if (currentBlock.type === lineType) {
-      currentBlock.lines.push(line);
+    if (currentType === null) {
+      currentType = lineType;
+      currentLines.push(line);
+    } else if (currentType === lineType) {
+      currentLines.push(line);
     } else {
-      // Empty line continuation in code
-      if (!line.trim() && currentBlock.type === 'code' && i + 1 < lines.length && isCodeLine(lines[i + 1])) {
-        currentBlock.lines.push(line);
-        continue;
-      }
       blocks.push({
-        type: currentBlock.type,
-        content: currentBlock.lines.join('\n').trim(),
+        type: currentType,
+        content: currentLines.join('\n').trim(),
         language: 'C'
       });
-      currentBlock = { type: lineType, lines: [line] };
+      currentType = lineType;
+      currentLines = [line];
     }
   }
 
-  if (currentBlock.lines.length > 0) {
+  if (currentLines.length > 0) {
     blocks.push({
-      type: currentBlock.type,
-      content: currentBlock.lines.join('\n').trim(),
+      type: currentType,
+      content: currentLines.join('\n').trim(),
       language: 'C'
     });
   }
