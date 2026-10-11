@@ -1,10 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import { useProctoring } from '../hooks/useProctoring';
 import { ViolationWarning } from '../pages/Login';
 import { DEMO_QUESTIONS, getStoredExams } from '../data/demo';
 import ThemeToggle from '../components/ThemeToggle';
 import { ClockIcon, ShieldIcon, LockIcon, KeyIcon } from '../components/Icons';
+import { getSocket } from '../services/socket';
+import { api } from '../services/api';
 
 function Timer({ secondsLeft }) {
   const m = Math.floor(secondsLeft / 60).toString().padStart(2, '0');
@@ -19,6 +22,7 @@ function Timer({ secondsLeft }) {
 }
 
 export default function ExamRoom() {
+  const { user } = useAuth();
   const navigate = useNavigate();
   const { id } = useParams();
   const exams = getStoredExams();
@@ -41,14 +45,30 @@ export default function ExamRoom() {
   const [inputCode, setInputCode] = useState('');
   const [codeError, setCodeError] = useState('');
 
-  const handleAutoSubmit = useCallback(() => {
+  const handleAutoSubmit = useCallback(async () => {
     setSubmitted(true);
+    try {
+      await api.submitExam({
+        examId: currentExam?.id,
+        answers,
+        autoSubmitted: true,
+        violationsCount: 3,
+      });
+    } catch {}
     navigate('/student/result', { state: { answers, autoSubmit: true } });
-  }, [answers, navigate]);
+  }, [answers, currentExam, navigate]);
 
   const handleViolation = useCallback((v) => {
-    console.log('Proctoring Violation Logged:', v);
-  }, []);
+    try {
+      const socket = getSocket();
+      socket.emit('student:violation', {
+        examId: currentExam?.id,
+        studentId: user?.id || 2,
+        violationType: v.type,
+        count: v.count,
+      });
+    } catch {}
+  }, [currentExam, user]);
 
   const {
     showWarning, warningType, dismissWarning, enterFullscreen,
@@ -60,6 +80,41 @@ export default function ExamRoom() {
     onAutoSubmit: handleAutoSubmit,
     onViolation: handleViolation,
   });
+
+  // Socket setup & Heartbeat
+  useEffect(() => {
+    if (!hasStarted) return;
+    const socket = getSocket();
+
+    socket.emit('student:join', {
+      examId: currentExam?.id,
+      studentId: user?.id || 2,
+      name: user?.name || 'Student',
+      email: user?.email || '',
+      totalQuestions: questions.length,
+    });
+
+    const heartbeatInterval = setInterval(() => {
+      const m = Math.floor(secondsLeft / 60).toString().padStart(2, '0');
+      const s = (secondsLeft % 60).toString().padStart(2, '0');
+      socket.emit('student:heartbeat', {
+        examId: currentExam?.id,
+        studentId: user?.id || 2,
+        answered: Object.keys(answers).length,
+        timeLeft: `${m}:${s}`,
+      });
+    }, 10000);
+
+    socket.on('exam:terminated', (data) => {
+      alert(`Exam auto-submitted: ${data?.reason || 'Disqualified by invigilator'}`);
+      handleAutoSubmit();
+    });
+
+    return () => {
+      clearInterval(heartbeatInterval);
+      socket.off('exam:terminated');
+    };
+  }, [hasStarted, currentExam, user, questions.length, secondsLeft, answers, handleAutoSubmit]);
 
   // Timer only runs once exam has started
   useEffect(() => {
@@ -77,7 +132,15 @@ export default function ExamRoom() {
     setAnswers(prev => ({ ...prev, [qId]: opt }));
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
+    try {
+      await api.submitExam({
+        examId: currentExam?.id,
+        answers,
+        autoSubmitted: false,
+        violationsCount,
+      });
+    } catch {}
     navigate('/student/result', { state: { answers } });
   };
 

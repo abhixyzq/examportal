@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { DEMO_STUDENTS } from '../data/demo';
-import { CloseIcon } from '../components/Icons';
+import { CloseIcon, ShieldIcon } from '../components/Icons';
+import { getSocket } from '../services/socket';
 
 const VIOLATION_NAMES = {
   tab_switch: 'Tab Switch',
@@ -16,20 +17,62 @@ export default function LiveMonitor() {
   const [selected, setSelected] = useState(null);
   const [filter, setFilter] = useState('all');
 
-  // Simulate live updates
+  // Real-time socket events
   useEffect(() => {
+    const socket = getSocket();
+    socket.emit('admin:subscribe', { examId: 2 });
+
+    socket.on('monitor:init', (data) => {
+      if (data?.students?.length > 0) {
+        setStudents(prev => {
+          const incomingIds = new Set(data.students.map(s => s.id));
+          const rest = prev.filter(s => !incomingIds.has(s.id));
+          return [...data.students, ...rest];
+        });
+      }
+    });
+
+    socket.on('monitor:heartbeat', (data) => {
+      setStudents(prev => prev.map(s => s.id === data.studentId ? { ...s, answered: data.answered, timeLeft: data.timeLeft } : s));
+    });
+
+    socket.on('monitor:violation', (data) => {
+      setStudents(prev => prev.map(s => s.id === data.studentId ? { ...s, violations: data.violations, status: data.status } : s));
+    });
+
+    socket.on('monitor:update', (data) => {
+      if (data.type === 'student_joined' && data.student) {
+        setStudents(prev => {
+          const exists = prev.find(s => s.id === data.student.id);
+          return exists ? prev.map(s => s.id === data.student.id ? data.student : s) : [data.student, ...prev];
+        });
+      }
+    });
+
+    // Fallback simulation timer
     const interval = setInterval(() => {
       setStudents(prev => prev.map(s => ({
         ...s,
-        answered: s.status !== 'submitted' ? Math.min(s.answered + (Math.random() > 0.7 ? 1 : 0), s.total) : s.answered,
+        answered: s.status !== 'submitted' ? Math.min(s.answered + (Math.random() > 0.8 ? 1 : 0), s.total) : s.answered,
       })));
-    }, 3000);
-    return () => clearInterval(interval);
+    }, 4000);
+
+    return () => {
+      clearInterval(interval);
+      socket.off('monitor:init');
+      socket.off('monitor:heartbeat');
+      socket.off('monitor:violation');
+      socket.off('monitor:update');
+    };
   }, []);
 
   const filtered = students.filter(s => filter === 'all' ? true : s.status === filter);
 
   const forceSubmit = (id) => {
+    try {
+      const socket = getSocket();
+      socket.emit('admin:terminate', { examId: 2, studentId: id, reason: 'Disqualified by Admin' });
+    } catch {}
     setStudents(prev => prev.map(s => s.id === id ? { ...s, status: 'submitted' } : s));
     setSelected(null);
   };

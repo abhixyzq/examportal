@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import ThemeToggle from '../components/ThemeToggle';
 import { AlertTriangleIcon } from '../components/Icons';
+import { api } from '../services/api';
 
 const VIOLATION_LABELS = {
   tab_switch: 'Tab Switch Detected',
@@ -49,7 +50,21 @@ export function Login() {
     setError('');
     setLoading(true);
     try {
-      // Demo credentials
+      // 1. Try real backend API
+      try {
+        const res = await api.login(email, password, role);
+        if (res?.user && res?.token) {
+          login(res.user, res.token);
+          navigate(res.user.role === 'admin' ? '/admin' : '/student');
+          setLoading(false);
+          return;
+        }
+      } catch (apiErr) {
+        // Fall back to demo authentication if backend is not reachable
+        console.warn('API login error, trying demo auth:', apiErr.message);
+      }
+
+      // 2. Demo credentials fallback
       if (role === 'admin' && email === 'admin@exam.com' && password === 'admin123') {
         login({ id: 1, name: 'Admin', email, role: 'admin' }, 'demo-admin-token');
         navigate('/admin');
@@ -57,10 +72,10 @@ export function Login() {
         login({ id: 2, name: email.split('@')[0], email, role: 'student' }, 'demo-student-token');
         navigate('/student');
       } else {
-        setError('Invalid credentials');
+        setError('Invalid credentials. Check email or password.');
       }
     } catch {
-      setError('Login failed');
+      setError('Login failed. Please check credentials.');
     }
     setLoading(false);
   };
