@@ -68,7 +68,21 @@ export default function ExamRoom() {
         count: v.count,
       });
     } catch {}
-  }, [currentExam, user]);
+
+    // Send to serverless API
+    if (currentExam?.id) {
+      api.reportViolation({
+        examId: currentExam.id,
+        violationType: v.type,
+        count: v.count,
+      }).then(res => {
+        if (res?.disqualified) {
+          alert('You have exceeded the maximum violations and have been disqualified.');
+          handleAutoSubmit();
+        }
+      }).catch(() => {});
+    }
+  }, [currentExam, user, handleAutoSubmit]);
 
   const {
     showWarning, warningType, dismissWarning, enterFullscreen,
@@ -81,29 +95,57 @@ export default function ExamRoom() {
     onViolation: handleViolation,
   });
 
-  // Socket setup & Heartbeat
+  // Socket setup & Serverless Heartbeat
   useEffect(() => {
     if (!hasStarted) return;
     const socket = getSocket();
 
-    socket.emit('student:join', {
-      examId: currentExam?.id,
-      studentId: user?.id || 2,
-      name: user?.name || 'Student',
-      email: user?.email || '',
-      totalQuestions: questions.length,
-    });
+    try {
+      socket.emit('student:join', {
+        examId: currentExam?.id,
+        studentId: user?.id || 2,
+        name: user?.name || 'Student',
+        email: user?.email || '',
+        totalQuestions: questions.length,
+      });
+    } catch {}
+
+    // Initial ping
+    if (currentExam?.id) {
+      api.sendHeartbeat({
+        examId: currentExam.id,
+        answered: Object.keys(answers).length,
+        timeLeft: `${Math.floor(secondsLeft / 60)}:${(secondsLeft % 60).toString().padStart(2, '0')}`,
+        total: questions.length,
+      }).catch(() => {});
+    }
 
     const heartbeatInterval = setInterval(() => {
       const m = Math.floor(secondsLeft / 60).toString().padStart(2, '0');
       const s = (secondsLeft % 60).toString().padStart(2, '0');
-      socket.emit('student:heartbeat', {
-        examId: currentExam?.id,
-        studentId: user?.id || 2,
-        answered: Object.keys(answers).length,
-        timeLeft: `${m}:${s}`,
-      });
-    }, 10000);
+      try {
+        socket.emit('student:heartbeat', {
+          examId: currentExam?.id,
+          studentId: user?.id || 2,
+          answered: Object.keys(answers).length,
+          timeLeft: `${m}:${s}`,
+        });
+      } catch {}
+
+      if (currentExam?.id) {
+        api.sendHeartbeat({
+          examId: currentExam.id,
+          answered: Object.keys(answers).length,
+          timeLeft: `${m}:${s}`,
+          total: questions.length,
+        }).then(res => {
+          if (res?.disqualified) {
+            alert('Exam auto-submitted: Disqualified by invigilator');
+            handleAutoSubmit();
+          }
+        }).catch(() => {});
+      }
+    }, 6000);
 
     socket.on('exam:terminated', (data) => {
       alert(`Exam auto-submitted: ${data?.reason || 'Disqualified by invigilator'}`);
@@ -112,7 +154,7 @@ export default function ExamRoom() {
 
     return () => {
       clearInterval(heartbeatInterval);
-      socket.off('exam:terminated');
+      try { socket.off('exam:terminated'); } catch {}
     };
   }, [hasStarted, currentExam, user, questions.length, secondsLeft, answers, handleAutoSubmit]);
 

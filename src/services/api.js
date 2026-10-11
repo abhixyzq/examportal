@@ -1,6 +1,6 @@
-// Frontend API Client connected to Node.js & PostgreSQL Backend
+// Frontend API Client connected to Vercel Serverless / Node.js Backend
 
-const API_BASE = 'http://localhost:5000/api';
+const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
 function getAuthHeaders() {
   const token = localStorage.getItem('ep_token');
@@ -84,4 +84,20 @@ export const api = {
   }),
   getExamResults: async (examId) => request(`/submissions/results/${examId}`),
   getMyResults: async () => request('/submissions/my-results'),
+
+  // Serverless Real-time Proctoring & Monitor
+  sendHeartbeat: async (data) => request('/monitor/heartbeat', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }),
+  reportViolation: async (data) => request('/monitor/violation', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }),
+  getLiveMonitor: async (examId) => request(`/monitor/live?examId=${examId}`),
+  disqualifyStudent: async (examId, studentId) => request('/monitor/disqualify', {
+    method: 'POST',
+    body: JSON.stringify({ examId, studentId }),
+  }),
+  getStudentStatus: async (examId) => request(`/monitor/status?examId=${examId}`),
 };

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { DEMO_STUDENTS } from '../data/demo';
 import { CloseIcon, ShieldIcon } from '../components/Icons';
 import { getSocket } from '../services/socket';
+import { api } from '../services/api';
 
 const VIOLATION_NAMES = {
   tab_switch: 'Tab Switch',
@@ -17,10 +18,28 @@ export default function LiveMonitor() {
   const [selected, setSelected] = useState(null);
   const [filter, setFilter] = useState('all');
 
-  // Real-time socket events
+  // Real-time serverless polling + socket events
   useEffect(() => {
+    const fetchLive = async () => {
+      try {
+        const data = await api.getLiveMonitor(2);
+        if (data?.students?.length > 0) {
+          setStudents(prev => {
+            const incomingIds = new Set(data.students.map(s => s.id));
+            const rest = prev.filter(s => !incomingIds.has(s.id));
+            return [...data.students, ...rest];
+          });
+        }
+      } catch {}
+    };
+
+    fetchLive();
+    const pollInterval = setInterval(fetchLive, 3500);
+
     const socket = getSocket();
-    socket.emit('admin:subscribe', { examId: 2 });
+    try {
+      socket.emit('admin:subscribe', { examId: 2 });
+    } catch {}
 
     socket.on('monitor:init', (data) => {
       if (data?.students?.length > 0) {
@@ -58,11 +77,14 @@ export default function LiveMonitor() {
     }, 4000);
 
     return () => {
+      clearInterval(pollInterval);
       clearInterval(interval);
-      socket.off('monitor:init');
-      socket.off('monitor:heartbeat');
-      socket.off('monitor:violation');
-      socket.off('monitor:update');
+      try {
+        socket.off('monitor:init');
+        socket.off('monitor:heartbeat');
+        socket.off('monitor:violation');
+        socket.off('monitor:update');
+      } catch {}
     };
   }, []);
 
@@ -73,7 +95,8 @@ export default function LiveMonitor() {
       const socket = getSocket();
       socket.emit('admin:terminate', { examId: 2, studentId: id, reason: 'Disqualified by Admin' });
     } catch {}
-    setStudents(prev => prev.map(s => s.id === id ? { ...s, status: 'submitted' } : s));
+    api.disqualifyStudent(2, id).catch(() => {});
+    setStudents(prev => prev.map(s => s.id === id ? { ...s, status: 'disqualified' } : s));
     setSelected(null);
   };
 
