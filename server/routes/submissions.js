@@ -214,6 +214,10 @@ router.get('/my-results', authenticate, async (req, res) => {
     const mySubs = db.store.submissions.filter(s => s.user_id === userId);
     res.json(mySubs);
   } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // POST /api/submissions/reset (Admin resets a candidate's exam submission)
 router.post('/reset', authenticate, async (req, res) => {
   try {
