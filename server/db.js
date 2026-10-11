@@ -8,8 +8,9 @@ const __dirname = path.dirname(__filename);
 
 const { Pool } = pg;
 
+const connectionString = process.env.POSTGRES_URL || process.env.DATABASE_URL;
 const hasPostgresConfig = Boolean(
-  process.env.DATABASE_URL ||
+  connectionString ||
   (process.env.PGUSER && process.env.PGDATABASE)
 );
 
@@ -20,20 +21,21 @@ let usePostgres = false;
 if (hasPostgresConfig) {
   try {
     pool = new Pool({
-      connectionString: process.env.DATABASE_URL,
+      connectionString: connectionString || undefined,
+      ssl: connectionString ? { rejectUnauthorized: false } : undefined,
       user: process.env.PGUSER,
       password: process.env.PGPASSWORD,
       host: process.env.PGHOST || 'localhost',
       port: process.env.PGPORT ? parseInt(process.env.PGPORT) : 5432,
-      database: process.env.PGDATABASE || 'examportal',
-      max: 50, // Connection pool tuned for concurrent queries
+      database: process.env.PGDATABASE || 'postgres',
+      max: 20,
       idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 2000,
+      connectionTimeoutMillis: 5000,
     });
     usePostgres = true;
-    console.log('🐘 Configured PostgreSQL connection pool');
+    console.log('🐘 Configured PostgreSQL connection pool (Supabase / Postgres)');
   } catch (err) {
-    console.warn('⚠️ Could not connect to PostgreSQL. Using local high-speed persistent store.', err.message);
+    console.warn('⚠️ Could not connect to PostgreSQL. Using local fallback.', err.message);
     usePostgres = false;
   }
 }
