@@ -15,6 +15,7 @@ CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 
 CREATE TABLE IF NOT EXISTS questions (
   id SERIAL PRIMARY KEY,
+  exam_id INT REFERENCES exams(id) ON DELETE CASCADE,
   text TEXT NOT NULL,
   opt_a TEXT NOT NULL,
   opt_b TEXT NOT NULL,
@@ -26,6 +27,7 @@ CREATE TABLE IF NOT EXISTS questions (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE INDEX IF NOT EXISTS idx_questions_exam_id ON questions(exam_id);
 CREATE INDEX IF NOT EXISTS idx_questions_subject ON questions(subject);
 
 CREATE TABLE IF NOT EXISTS exams (

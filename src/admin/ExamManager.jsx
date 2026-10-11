@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { PlusIcon, CloseIcon, TrashIcon, LockIcon, KeyIcon } from '../components/Icons';
+import { useNavigate } from 'react-router-dom';
+import { PlusIcon, CloseIcon, TrashIcon, LockIcon, KeyIcon, QuestionsIcon } from '../components/Icons';
 import { api } from '../services/api';
 
 const generateRandomCode = () => {
@@ -19,7 +20,9 @@ const EMPTY_EXAM = {
 };
 
 export default function ExamManager() {
+  const navigate = useNavigate();
   const [exams, setExams] = useState([]);
+  const [questions, setQuestions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(() => ({
@@ -29,10 +32,15 @@ export default function ExamManager() {
 
   const loadExams = async () => {
     try {
-      const data = await api.getExams();
-      setExams(Array.isArray(data) ? data : []);
+      const [exData, qData] = await Promise.all([
+        api.getExams().catch(() => []),
+        api.getQuestions().catch(() => [])
+      ]);
+      setExams(Array.isArray(exData) ? exData : []);
+      setQuestions(Array.isArray(qData) ? qData : []);
     } catch {
       setExams([]);
+      setQuestions([]);
     } finally {
       setLoading(false);
     }
@@ -232,7 +240,28 @@ export default function ExamManager() {
                   <td>{exam.subject}</td>
                   <td style={{ color: 'var(--text-sub)' }}>{exam.date} {exam.time}</td>
                   <td>{exam.duration_mins || exam.duration}m</td>
-                  <td>{exam.total_questions || exam.total}</td>
+                  <td>
+                    {(() => {
+                      const qCount = questions.filter(q => String(q.exam_id) === String(exam.id)).length;
+                      const needed = exam.total_questions || exam.total || 0;
+                      return (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                          <span style={{ fontWeight: 600, fontSize: 13, color: qCount >= needed && needed > 0 ? 'var(--success)' : 'inherit' }}>
+                            {qCount} / {needed}
+                          </span>
+                          <button
+                            type="button"
+                            className="btn btn-ghost btn-sm"
+                            style={{ padding: '2px 8px', fontSize: 11 }}
+                            onClick={() => navigate(`/admin/questions?examId=${exam.id}`)}
+                            title="Set or view specific questions for this exam"
+                          >
+                            <QuestionsIcon size={12} /> Set Questions
+                          </button>
+                        </div>
+                      );
+                    })()}
+                  </td>
                   <td>
                     <span className={`badge ${exam.status === 'active' ? 'badge-green' : exam.status === 'upcoming' ? 'badge-blue' : 'badge-gray'}`}>
                       {exam.status}

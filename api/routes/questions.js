@@ -8,9 +8,20 @@ const router = Router();
 router.get('/', authenticate, async (req, res) => {
   try {
     await ensureSchema();
+    const examId = req.query.examId || req.query.exam_id;
     if (db.isPostgres()) {
+      if (examId) {
+        const { rows } = await db.query(
+          'SELECT * FROM questions WHERE exam_id = $1 ORDER BY id ASC',
+          [Number(examId)]
+        );
+        return res.json(rows);
+      }
       const { rows } = await db.query('SELECT * FROM questions ORDER BY id DESC');
       return res.json(rows);
+    }
+    if (examId) {
+      return res.json(db.store.questions.filter(q => Number(q.exam_id || q.examId) === Number(examId)));
     }
     res.json(db.store.questions);
   } catch (err) {
@@ -22,23 +33,25 @@ router.get('/', authenticate, async (req, res) => {
 router.post('/', authenticate, requireAdmin, async (req, res) => {
   try {
     await ensureSchema();
-    const { text, optA, optB, optC, optD, correct, subject, difficulty } = req.body;
+    const { text, optA, optB, optC, optD, correct, subject, difficulty, exam_id, examId } = req.body;
     if (!text || !optA || !optB || !optC || !optD || !correct) {
       return res.status(400).json({ error: 'Question text, 4 options, and correct answer are required' });
     }
+    const finalExamId = exam_id || examId ? Number(exam_id || examId) : null;
 
     if (db.isPostgres()) {
       const q = `
-        INSERT INTO questions (text, opt_a, opt_b, opt_c, opt_d, correct, subject, difficulty)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        INSERT INTO questions (exam_id, text, opt_a, opt_b, opt_c, opt_d, correct, subject, difficulty)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
         RETURNING *
       `;
-      const { rows } = await db.query(q, [text, optA, optB, optC, optD, correct, subject || 'General', difficulty || 'easy']);
+      const { rows } = await db.query(q, [finalExamId, text, optA, optB, optC, optD, correct, subject || 'General', difficulty || 'easy']);
       return res.status(201).json(rows[0]);
     }
 
     const newQ = {
       id: Date.now(),
+      exam_id: finalExamId,
       text,
       optA,
       optB,
@@ -59,19 +72,22 @@ router.post('/', authenticate, requireAdmin, async (req, res) => {
 router.post('/bulk', authenticate, requireAdmin, async (req, res) => {
   try {
     await ensureSchema();
-    const { questions } = req.body;
+    const { questions, exam_id, examId } = req.body;
     if (!Array.isArray(questions) || questions.length === 0) {
       return res.status(400).json({ error: 'Array of questions is required' });
     }
+    const defaultExamId = exam_id || examId ? Number(exam_id || examId) : null;
 
     if (db.isPostgres()) {
       const inserted = [];
       for (const q of questions) {
+        const itemExamId = q.exam_id || q.examId ? Number(q.exam_id || q.examId) : defaultExamId;
         const ins = await db.query(`
-          INSERT INTO questions (text, opt_a, opt_b, opt_c, opt_d, correct, subject, difficulty)
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+          INSERT INTO questions (exam_id, text, opt_a, opt_b, opt_c, opt_d, correct, subject, difficulty)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
           RETURNING *
         `, [
+          itemExamId,
           q.text,
           q.optA || q.opt_a,
           q.optB || q.opt_b,
@@ -88,6 +104,7 @@ router.post('/bulk', authenticate, requireAdmin, async (req, res) => {
 
     const added = questions.map((q, idx) => ({
       id: Date.now() + idx,
+      exam_id: q.exam_id || q.examId ? Number(q.exam_id || q.examId) : defaultExamId,
       text: q.text,
       optA: q.optA || q.opt_a,
       optB: q.optB || q.opt_b,

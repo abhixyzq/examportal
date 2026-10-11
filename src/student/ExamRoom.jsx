@@ -33,7 +33,7 @@ export default function ExamRoom() {
   useEffect(() => {
     Promise.all([
       api.getExams().catch(() => []),
-      api.getQuestions().catch(() => [])
+      api.getQuestions(id).catch(() => [])
     ]).then(([examList, qList]) => {
       const found = (examList || []).find(e => String(e.id) === String(id)) || examList?.[0] || null;
       setCurrentExam(found);

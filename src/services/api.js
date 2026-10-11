@@ -87,14 +87,14 @@ export const api = {
   }),
 
   // Questions
-  getQuestions: async () => request('/questions'),
+  getQuestions: async (examId) => request(`/questions${examId ? `?examId=${examId}` : ''}`),
   addQuestion: async (question) => request('/questions', {
     method: 'POST',
     body: JSON.stringify(question),
   }),
-  bulkAddQuestions: async (questions) => request('/questions/bulk', {
+  bulkAddQuestions: async (questions, exam_id) => request('/questions/bulk', {
     method: 'POST',
-    body: JSON.stringify({ questions }),
+    body: JSON.stringify({ questions, exam_id }),
   }),
   deleteQuestion: async (id) => request(`/questions/${id}`, {
     method: 'DELETE',
