@@ -10,7 +10,26 @@ function getAuthHeaders() {
   };
 }
 
+const apiCache = new Map();
+const CACHE_TTL_MS = 6000; // 6s fast in-memory cache
+
+export function invalidateApiCache() {
+  apiCache.clear();
+}
+
 async function request(endpoint, options = {}) {
+  const isGet = !options.method || options.method === 'GET';
+
+  if (isGet && !options.noCache) {
+    const cached = apiCache.get(endpoint);
+    if (cached && (Date.now() - cached.timestamp < CACHE_TTL_MS)) {
+      return cached.data;
+    }
+  } else if (!isGet) {
+    // Invalidate cache immediately on creates/updates/deletes
+    apiCache.clear();
+  }
+
   try {
     const res = await fetch(`${API_BASE}${endpoint}`, {
       ...options,
@@ -24,6 +43,10 @@ async function request(endpoint, options = {}) {
 
     if (!res.ok) {
       throw new Error(data?.error || `HTTP error! status: ${res.status}`);
+    }
+
+    if (isGet) {
+      apiCache.set(endpoint, { data, timestamp: Date.now() });
     }
 
     return data;
