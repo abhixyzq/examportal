@@ -11,13 +11,34 @@ router.post('/', authenticate, async (req, res) => {
     const { examId, answers = {}, autoSubmitted = false, violationsCount = 0 } = req.body;
     const userId = req.user.id;
 
-    // Fetch questions to calculate score
+    // Fetch questions specifically for this exam to calculate score
     let questions = [];
     if (db.isPostgres()) {
-      const qRes = await db.query('SELECT * FROM questions');
+      const qRes = await db.query(
+        'SELECT * FROM questions WHERE exam_id = $1 ORDER BY id ASC',
+        [Number(examId)]
+      );
       questions = qRes.rows;
+      if (questions.length === 0) {
+        // Fallback to all questions if none explicitly mapped
+        const allRes = await db.query('SELECT * FROM questions ORDER BY id ASC');
+        questions = allRes.rows;
+      }
     } else {
-      questions = db.store.questions;
+      questions = (db.store.questions || []).filter(q => Number(q.exam_id) === Number(examId));
+      if (questions.length === 0) questions = db.store.questions || [];
+    }
+
+    function isMatch(studentAns, correctVal) {
+      if (!studentAns || !correctVal) return false;
+      const normalize = (val) => {
+        if (Array.isArray(val)) return val.map(s => String(s).trim().toUpperCase()).filter(Boolean).sort();
+        return String(val).split(',').map(s => s.trim().toUpperCase()).filter(Boolean).sort();
+      };
+      const s = normalize(studentAns);
+      const c = normalize(correctVal);
+      if (s.length === 0 || c.length === 0 || s.length !== c.length) return false;
+      return s.every((v, i) => v === c[i]);
     }
 
     let correctCount = 0;
@@ -26,7 +47,7 @@ router.post('/', authenticate, async (req, res) => {
     questions.forEach(q => {
       const studentAns = answers[q.id];
       const correctVal = q.correct;
-      if (studentAns && studentAns.toUpperCase() === correctVal.toUpperCase()) {
+      if (isMatch(studentAns, correctVal)) {
         correctCount += 1;
       }
     });

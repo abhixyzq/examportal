@@ -17,13 +17,13 @@ CREATE TABLE IF NOT EXISTS questions (
   id SERIAL PRIMARY KEY,
   exam_id INT REFERENCES exams(id) ON DELETE CASCADE,
   text TEXT NOT NULL,
-  opt_a TEXT NOT NULL,
-  opt_b TEXT NOT NULL,
-  opt_c TEXT NOT NULL,
-  opt_d TEXT NOT NULL,
-  correct VARCHAR(5) NOT NULL CHECK (correct IN ('A', 'B', 'C', 'D')),
+  options JSONB DEFAULT '[]'::jsonb,
+  opt_a TEXT,
+  opt_b TEXT,
+  opt_c TEXT,
+  opt_d TEXT,
+  correct VARCHAR(100) NOT NULL,
   subject VARCHAR(100) DEFAULT 'General',
-  difficulty VARCHAR(20) DEFAULT 'easy' CHECK (difficulty IN ('easy', 'medium', 'hard')),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 

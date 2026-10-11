@@ -7,7 +7,20 @@ export default function ResultPage() {
   const autoSubmit = state?.autoSubmit;
   const questions = state?.questions || [];
 
-  const correct = questions.filter(q => (answers[q.id] || '').toUpperCase() === (q.correct || '').toUpperCase()).length;
+  const normalize = (val) => {
+    if (!val) return [];
+    if (Array.isArray(val)) return val.map(s => String(s).trim().toUpperCase()).filter(Boolean).sort();
+    return String(val).split(',').map(s => s.trim().toUpperCase()).filter(Boolean).sort();
+  };
+
+  const isMatch = (selected, correctVal) => {
+    const s = normalize(selected);
+    const c = normalize(correctVal);
+    if (s.length === 0 || c.length === 0 || s.length !== c.length) return false;
+    return s.every((v, i) => v === c[i]);
+  };
+
+  const correct = questions.filter(q => isMatch(answers[q.id], q.correct)).length;
   const total = questions.length || 1;
   const score = questions.length > 0 ? Math.round((correct / total) * 100) : 0;
   const pass = score >= 60;
@@ -39,15 +52,18 @@ export default function ResultPage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {questions.map((q, i) => {
               const selected = answers[q.id];
-              const isCorrect = (selected || '').toUpperCase() === (q.correct || '').toUpperCase();
+              const isCorrect = isMatch(selected, q.correct);
+              const selectedText = normalize(selected).join(', ');
+              const correctText = normalize(q.correct).join(', ');
+
               return (
                 <div key={q.id} style={{ padding: '12px 14px', background: 'var(--bg-input)', borderRadius: 'var(--radius-sm)', borderLeft: `3px solid ${!selected ? 'var(--border)' : isCorrect ? 'var(--success)' : 'var(--danger)'}` }}>
                   <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 6 }}>
                     Q{i + 1}. {q.text}
                   </div>
                   <div style={{ display: 'flex', gap: 12, fontSize: 12, color: 'var(--text-muted)' }}>
-                    <span>Your answer: <strong style={{ color: selected ? (isCorrect ? 'var(--success)' : 'var(--danger)') : 'var(--text-muted)' }}>{selected || 'Not answered'}</strong></span>
-                    {!isCorrect && <span>Correct: <strong style={{ color: 'var(--success)' }}>{q.correct}</strong></span>}
+                    <span>Your answer: <strong style={{ color: selected ? (isCorrect ? 'var(--success)' : 'var(--danger)') : 'var(--text-muted)' }}>{selectedText || 'Not answered'}</strong></span>
+                    {!isCorrect && <span>Correct: <strong style={{ color: 'var(--success)' }}>{correctText}</strong></span>}
                   </div>
                 </div>
               );

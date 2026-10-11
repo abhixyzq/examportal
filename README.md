@@ -8,7 +8,7 @@ A lightweight, high-performance objective examination portal built with **React*
 
 ### 👨‍💼 Admin Controls
 - **Dashboard Overview:** Real-time stats on active, upcoming, and completed exams.
-- **Question Bank:** Add, delete, filter, and manage questions with multiple difficulty levels and options.
+- **Question Bank:** Add, delete, and manage questions with flexible dynamic options (fewer or more than 4) and single/multiple correct answers mapped to specific examinations.
 - **Exam Manager:**
   - Create & schedule multi-exam sessions.
   - **Exam Hall Access Code:** Toggle & generate random/custom passcodes so only candidates physically in the exam hall can unlock tests.

@@ -18,18 +18,15 @@ export default function QuestionBank() {
   const [bulkLoading, setBulkLoading] = useState(false);
   const [search, setSearch] = useState('');
 
+  // Default empty form with dynamic options and multiple correct choices
   const getEmptyForm = (examId) => {
     const targetExam = exams.find(e => String(e.id) === String(examId));
     return {
       text: '',
-      optA: '',
-      optB: '',
-      optC: '',
-      optD: '',
-      correct: 'A',
+      options: ['', '', '', ''], // 4 initial options (can be 2, 3, 5, 6 etc.)
+      correct: ['A'], // Array of correct option letters
       subject: targetExam ? targetExam.subject : '',
-      difficulty: 'easy',
-      exam_id: examId && examId !== 'all' ? String(examId) : ''
+      exam_id: examId && examId !== 'all' && examId !== 'unassigned' ? String(examId) : ''
     };
   };
 
@@ -44,7 +41,7 @@ export default function QuestionBank() {
       setQuestions(Array.isArray(qData) ? qData : []);
       setExams(Array.isArray(exData) ? exData : []);
     } catch (err) {
-      console.error('Failed to load data in QuestionBank:', err);
+      console.error('Failed to load QuestionBank data:', err);
     } finally {
       setLoading(false);
     }
@@ -54,7 +51,6 @@ export default function QuestionBank() {
     loadData();
   }, []);
 
-  // Sync selected exam from URL if search param changes
   useEffect(() => {
     const pId = searchParams.get('examId');
     if (pId) {
@@ -64,7 +60,6 @@ export default function QuestionBank() {
     }
   }, [searchParams]);
 
-  // Handle changing the exam filter dropdown
   const handleExamFilterChange = (newExamId) => {
     setSelectedExam(newExamId);
     if (newExamId === 'all') {
@@ -73,7 +68,6 @@ export default function QuestionBank() {
     } else {
       setSearchParams({ examId: newExamId });
     }
-    // Pre-populate new question form with the newly selected exam
     if (newExamId !== 'all' && newExamId !== 'unassigned') {
       const ex = exams.find(e => String(e.id) === String(newExamId));
       setForm(prev => ({
@@ -83,6 +77,64 @@ export default function QuestionBank() {
       }));
       setBulkExamId(newExamId);
     }
+  };
+
+  // Option management in new question form
+  const handleOptionChange = (index, value) => {
+    setForm(prev => {
+      const nextOpts = [...prev.options];
+      nextOpts[index] = value;
+      return { ...prev, options: nextOpts };
+    });
+  };
+
+  const addOption = () => {
+    setForm(prev => ({
+      ...prev,
+      options: [...prev.options, '']
+    }));
+  };
+
+  const removeOption = (index) => {
+    if (form.options.length <= 2) {
+      alert('A question must have at least 2 options.');
+      return;
+    }
+    const removedLetter = String.fromCharCode(65 + index);
+    setForm(prev => {
+      const nextOpts = prev.options.filter((_, i) => i !== index);
+      // Re-map correct answers because letters shift
+      const nextCorrect = prev.correct
+        .filter(l => l !== removedLetter)
+        .map(l => {
+          const code = l.charCodeAt(0);
+          if (code > 65 + index) return String.fromCharCode(code - 1);
+          return l;
+        });
+      return {
+        ...prev,
+        options: nextOpts,
+        correct: nextCorrect.length > 0 ? nextCorrect : ['A']
+      };
+    });
+  };
+
+  // Toggle correct choice (supports multiple correct answers)
+  const toggleCorrectOption = (letter) => {
+    setForm(prev => {
+      const exists = prev.correct.includes(letter);
+      let updated;
+      if (exists) {
+        if (prev.correct.length <= 1) {
+          alert('At least one correct answer must be selected.');
+          return prev;
+        }
+        updated = prev.correct.filter(l => l !== letter);
+      } else {
+        updated = [...prev.correct, letter].sort();
+      }
+      return { ...prev, correct: updated };
+    });
   };
 
   const filtered = questions.filter(q => {
@@ -101,11 +153,25 @@ export default function QuestionBank() {
 
   const handleAdd = async (e) => {
     e.preventDefault();
+    const cleanOpts = form.options.map(o => o.trim()).filter(Boolean);
+    if (cleanOpts.length < 2) {
+      alert('Please fill out at least 2 options for this question.');
+      return;
+    }
+    if (form.correct.length === 0) {
+      alert('Please check at least one correct answer.');
+      return;
+    }
+
     try {
       const payload = {
-        ...form,
+        text: form.text.trim(),
+        options: cleanOpts,
+        correct: form.correct.join(','),
+        subject: form.subject.trim() || 'General',
         exam_id: form.exam_id ? Number(form.exam_id) : null
       };
+
       await api.addQuestion(payload);
       await loadData();
       setForm(getEmptyForm(selectedExam));
@@ -125,7 +191,7 @@ export default function QuestionBank() {
     }
   };
 
-  // Bulk CSV parser
+  // Bulk CSV parser supporting dynamic options and multiple correct answers
   const handleBulkImport = async (e) => {
     e.preventDefault();
     if (!bulkText.trim()) return;
@@ -136,27 +202,45 @@ export default function QuestionBank() {
       const parsed = [];
 
       for (const line of lines) {
-        // Skip header lines
-        if (line.toLowerCase().startsWith('question') || line.toLowerCase().startsWith('text,')) continue;
-        const parts = line.split(',').map(p => p.trim());
-        if (parts.length >= 6) {
-          const [text, optA, optB, optC, optD, correct, subject, difficulty] = parts;
-          parsed.push({
-            text,
-            optA,
-            optB,
-            optC,
-            optD,
-            correct: (correct || 'A').toUpperCase(),
-            subject: subject || (bulkExamId ? exams.find(e => String(e.id) === String(bulkExamId))?.subject : 'General'),
-            difficulty: ['easy', 'medium', 'hard'].includes(difficulty?.toLowerCase()) ? difficulty.toLowerCase() : 'easy',
-            exam_id: bulkExamId ? Number(bulkExamId) : null
-          });
+        if (line.toLowerCase().startsWith('question') || line.toLowerCase().startsWith('text')) continue;
+        
+        // Split by semicolon, pipe, or comma
+        let separator = ',';
+        if (line.includes('|')) separator = '|';
+        else if (line.includes(';')) separator = ';';
+
+        const parts = line.split(separator).map(p => p.trim()).filter(Boolean);
+        if (parts.length >= 3) {
+          // Format: QuestionText, Opt1, Opt2, ..., CorrectAnswers
+          // The last element is correct answers (e.g. "A" or "A,C" or "A;B")
+          const lastPart = parts[parts.length - 1];
+          const isCorrectField = /^[A-Z,\s;]+$/i.test(lastPart);
+
+          let correctVal = 'A';
+          let optionsList = [];
+          const text = parts[0];
+
+          if (isCorrectField) {
+            correctVal = lastPart.replace(/;/g, ',').toUpperCase();
+            optionsList = parts.slice(1, parts.length - 1);
+          } else {
+            optionsList = parts.slice(1);
+          }
+
+          if (optionsList.length >= 2) {
+            parsed.push({
+              text,
+              options: optionsList,
+              correct: correctVal,
+              subject: bulkExamId ? exams.find(e => String(e.id) === String(bulkExamId))?.subject || 'General' : 'General',
+              exam_id: bulkExamId ? Number(bulkExamId) : null
+            });
+          }
         }
       }
 
       if (parsed.length === 0) {
-        alert('Could not parse any valid question lines. Make sure format is: QuestionText, OptionA, OptionB, OptionC, OptionD, Correct(A/B/C/D)');
+        alert('Could not parse valid question lines. Example format:\nWhat is 2+2? | 3 | 4 | 5 | B\nWhich are fruits? | Apple | Carrot | Mango | A,C');
         setBulkLoading(false);
         return;
       }
@@ -165,7 +249,7 @@ export default function QuestionBank() {
       await loadData();
       setShowBulkModal(false);
       setBulkText('');
-      alert(`Successfully added ${parsed.length} questions!`);
+      alert(`Successfully imported ${parsed.length} questions!`);
     } catch (err) {
       alert('Bulk import failed: ' + (err.message || 'Unknown error'));
     } finally {
@@ -182,9 +266,9 @@ export default function QuestionBank() {
           <div className="page-title">Question Bank</div>
           <div className="page-sub">
             {currentExamObj ? (
-              <span>Configuring questions specifically for <strong>{currentExamObj.title}</strong></span>
+              <span>Managing questions for <strong>{currentExamObj.title}</strong></span>
             ) : (
-              'Manage and assign specific questions for all scheduled examinations'
+              'Questions, dynamic options, and correct answers per examination'
             )}
           </div>
         </div>
@@ -201,14 +285,14 @@ export default function QuestionBank() {
         </div>
       </div>
 
-      {/* Stats row */}
+      {/* Stats bar */}
       <div className="stats-row mb-3">
         <div className="stat-card">
-          <div className="stat-label">Total Questions in Bank</div>
+          <div className="stat-label">Total Questions</div>
           <div className="stat-value">{questions.length}</div>
         </div>
         <div className="stat-card">
-          <div className="stat-label">Questions in Active Filter</div>
+          <div className="stat-label">In Current Filter</div>
           <div className="stat-value" style={{ color: 'var(--primary)' }}>
             {filtered.length}
           </div>
@@ -216,7 +300,7 @@ export default function QuestionBank() {
         <div className="stat-card">
           <div className="stat-label">Selected Exam</div>
           <div className="stat-value" style={{ fontSize: 16 }}>
-            {selectedExam === 'all' ? 'All Exams' : selectedExam === 'unassigned' ? 'General / Unassigned' : currentExamObj?.title || selectedExam}
+            {selectedExam === 'all' ? 'All Exams' : selectedExam === 'unassigned' ? 'General' : currentExamObj?.title || selectedExam}
           </div>
         </div>
       </div>
@@ -228,7 +312,7 @@ export default function QuestionBank() {
             <input
               type="text"
               className="form-control"
-              placeholder="Search question text or subject..."
+              placeholder="Search questions by text or subject..."
               value={search}
               onChange={e => setSearch(e.target.value)}
             />
@@ -269,7 +353,9 @@ export default function QuestionBank() {
               <CloseIcon size={14} />
             </button>
           </div>
+
           <form onSubmit={handleAdd}>
+            {/* Exam and Subject */}
             <div className="grid-2 mb-2" style={{ gap: 12 }}>
               <div className="form-group" style={{ marginBottom: 8 }}>
                 <label className="form-label" style={{ fontWeight: 600 }}>Assign to Examination *</label>
@@ -294,27 +380,24 @@ export default function QuestionBank() {
                     </option>
                   ))}
                 </select>
-                <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 4 }}>
-                  This question will appear specifically inside this selected examination.
-                </div>
               </div>
               <div className="form-group" style={{ marginBottom: 8 }}>
                 <label className="form-label">Subject</label>
                 <input
                   className="form-control"
-                  placeholder="e.g. Physics, Mathematics"
+                  placeholder="e.g. Physics, General"
                   value={form.subject}
                   onChange={e => setForm(f => ({ ...f, subject: e.target.value }))}
-                  required
                 />
               </div>
             </div>
 
+            {/* Question Text */}
             <div className="form-group">
-              <label className="form-label">Question Text *</label>
+              <label className="form-label" style={{ fontWeight: 600 }}>Question Text *</label>
               <textarea
                 className="form-control"
-                placeholder="Enter complete question text..."
+                placeholder="Type your question text here..."
                 value={form.text}
                 onChange={e => setForm(f => ({ ...f, text: e.target.value }))}
                 rows={3}
@@ -322,45 +405,114 @@ export default function QuestionBank() {
               />
             </div>
 
-            <div className="grid-2" style={{ gap: 12 }}>
-              {['A', 'B', 'C', 'D'].map(opt => (
-                <div className="form-group" key={opt}>
-                  <label className="form-label">Option {opt} *</label>
-                  <input
-                    className="form-control"
-                    placeholder={`Answer option ${opt}...`}
-                    value={form[`opt${opt}`]}
-                    onChange={e => setForm(f => ({ ...f, [`opt${opt}`]: e.target.value }))}
-                    required
-                  />
-                </div>
-              ))}
-            </div>
-
-            <div className="grid-2" style={{ gap: 12, marginTop: 4 }}>
-              <div className="form-group">
-                <label className="form-label">Correct Option *</label>
-                <select
-                  className="form-control"
-                  value={form.correct}
-                  onChange={e => setForm(f => ({ ...f, correct: e.target.value }))}
-                >
-                  {['A', 'B', 'C', 'D'].map(o => (
-                    <option key={o} value={o}>Option {o}</option>
-                  ))}
-                </select>
+            {/* Dynamic Options List */}
+            <div style={{ marginBottom: 16 }}>
+              <div className="flex-between mb-2">
+                <label className="form-label" style={{ fontWeight: 600, margin: 0 }}>
+                  Options & Correct Answer(s) *
+                </label>
+                <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>
+                  Check the green box for each correct answer (single or multiple)
+                </span>
               </div>
-              <div className="form-group">
-                <label className="form-label">Difficulty Level</label>
-                <select
-                  className="form-control"
-                  value={form.difficulty}
-                  onChange={e => setForm(f => ({ ...f, difficulty: e.target.value }))}
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {form.options.map((optText, idx) => {
+                  const letter = String.fromCharCode(65 + idx);
+                  const isCorrect = form.correct.includes(letter);
+
+                  return (
+                    <div
+                      key={idx}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 10,
+                        background: isCorrect ? 'var(--primary-faint)' : 'var(--bg-input)',
+                        border: `1px solid ${isCorrect ? 'var(--primary)' : 'var(--border)'}`,
+                        borderRadius: 'var(--radius-sm)',
+                        padding: '8px 12px',
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      {/* Checkbox button for correct answer */}
+                      <button
+                        type="button"
+                        onClick={() => toggleCorrectOption(letter)}
+                        title={isCorrect ? 'Marked as Correct Answer' : 'Click to mark as Correct Answer'}
+                        style={{
+                          width: 32,
+                          height: 32,
+                          borderRadius: 6,
+                          border: `2px solid ${isCorrect ? 'var(--primary)' : 'var(--border)'}`,
+                          background: isCorrect ? 'var(--primary)' : 'transparent',
+                          color: isCorrect ? '#fff' : 'var(--text-sub)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontWeight: 700,
+                          fontSize: 13,
+                          cursor: 'pointer',
+                          flexShrink: 0,
+                          transition: 'all 0.15s ease'
+                        }}
+                      >
+                        {isCorrect ? '✓' : letter}
+                      </button>
+
+                      {/* Option Text Input */}
+                      <input
+                        type="text"
+                        className="form-control"
+                        placeholder={`Option ${letter} text...`}
+                        value={optText}
+                        onChange={e => handleOptionChange(idx, e.target.value)}
+                        required
+                        style={{
+                          border: 'none',
+                          background: 'transparent',
+                          padding: '4px 6px',
+                          fontSize: 13.5
+                        }}
+                      />
+
+                      {/* Correct Status Tag */}
+                      {isCorrect && (
+                        <span className="badge badge-green" style={{ fontSize: 11, flexShrink: 0 }}>
+                          Correct
+                        </span>
+                      )}
+
+                      {/* Remove Option Button (minimum 2 options) */}
+                      {form.options.length > 2 && (
+                        <button
+                          type="button"
+                          className="btn btn-icon btn-sm"
+                          onClick={() => removeOption(idx)}
+                          title="Remove option"
+                          style={{ padding: '4px 6px' }}
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Add Option Button */}
+              <div className="mt-2" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  onClick={addOption}
+                  style={{ gap: 6 }}
                 >
-                  <option value="easy">Easy</option>
-                  <option value="medium">Medium</option>
-                  <option value="hard">Hard</option>
-                </select>
+                  <PlusIcon size={13} /> Add Another Option ({String.fromCharCode(65 + form.options.length)})
+                </button>
+                <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                  Selected correct: <strong>{form.correct.join(', ')}</strong> ({form.correct.length > 1 ? 'Multiple Choice' : 'Single Choice'})
+                </span>
               </div>
             </div>
 
@@ -369,7 +521,7 @@ export default function QuestionBank() {
                 Cancel
               </button>
               <button type="submit" className="btn btn-primary">
-                Save & Add Question
+                Save Question
               </button>
             </div>
           </form>
@@ -384,10 +536,10 @@ export default function QuestionBank() {
               <tr>
                 <th style={{ width: 40 }}>#</th>
                 <th>Question</th>
+                <th>Options</th>
                 <th>Target Exam</th>
                 <th>Subject</th>
-                <th>Difficulty</th>
-                <th>Correct</th>
+                <th>Correct Answer</th>
                 <th style={{ width: 50 }}></th>
               </tr>
             </thead>
@@ -421,17 +573,35 @@ export default function QuestionBank() {
               ) : (
                 filtered.map((q, i) => {
                   const examObj = exams.find(e => String(e.id) === String(q.exam_id));
+                  
+                  // Extract options list
+                  let opts = q.options;
+                  if (typeof opts === 'string') {
+                    try { opts = JSON.parse(opts); } catch { opts = []; }
+                  }
+                  if (!Array.isArray(opts) || opts.length === 0) {
+                    opts = [q.opt_a || q.optA, q.opt_b || q.optB, q.opt_c || q.optC, q.opt_d || q.optD].filter(Boolean);
+                  }
+
+                  const isMulti = String(q.correct).includes(',') || (Array.isArray(q.correct) && q.correct.length > 1);
+
                   return (
                     <tr key={q.id}>
                       <td style={{ color: 'var(--text-muted)' }}>{i + 1}</td>
                       <td style={{ maxWidth: 360 }}>
                         <div style={{ fontWeight: 500, marginBottom: 4 }}>{q.text}</div>
-                        <div style={{ fontSize: 12, color: 'var(--text-muted)', display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                          <span><strong>A:</strong> {q.opt_a || q.optA}</span>
-                          <span><strong>B:</strong> {q.opt_b || q.optB}</span>
-                          <span><strong>C:</strong> {q.opt_c || q.optC}</span>
-                          <span><strong>D:</strong> {q.opt_d || q.optD}</span>
+                        <div style={{ fontSize: 12, color: 'var(--text-muted)', display: 'flex', gap: '6px 12px', flexWrap: 'wrap' }}>
+                          {opts.map((optText, idx) => (
+                            <span key={idx}>
+                              <strong>{String.fromCharCode(65 + idx)}:</strong> {optText}
+                            </span>
+                          ))}
                         </div>
+                      </td>
+                      <td>
+                        <span className="badge badge-gray" style={{ fontSize: 11 }}>
+                          {opts.length} Options
+                        </span>
                       </td>
                       <td>
                         {examObj ? (
@@ -442,16 +612,18 @@ export default function QuestionBank() {
                           <span className="badge badge-gray">General (All)</span>
                         )}
                       </td>
-                      <td>{q.subject}</td>
+                      <td>{q.subject || 'General'}</td>
                       <td>
-                        <span className={`badge ${q.difficulty === 'easy' ? 'badge-green' : q.difficulty === 'medium' ? 'badge-yellow' : 'badge-red'}`}>
-                          {q.difficulty}
-                        </span>
-                      </td>
-                      <td>
-                        <span className="badge badge-blue" style={{ fontWeight: 700 }}>
-                          {q.correct}
-                        </span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span className="badge badge-blue" style={{ fontWeight: 700, letterSpacing: '0.5px' }}>
+                            {Array.isArray(q.correct) ? q.correct.join(', ') : q.correct}
+                          </span>
+                          {isMulti && (
+                            <span className="badge badge-yellow" style={{ fontSize: 10 }}>
+                              Multi
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td>
                         <button className="btn btn-icon btn-sm" onClick={() => handleDelete(q.id)} title="Delete Question">
@@ -472,13 +644,13 @@ export default function QuestionBank() {
         <div className="modal-overlay">
           <div className="modal-box" style={{ maxWidth: 560 }}>
             <div className="flex-between mb-2">
-              <div style={{ fontWeight: 600, fontSize: 16 }}>Bulk Import Questions (CSV)</div>
+              <div style={{ fontWeight: 600, fontSize: 16 }}>Bulk Import Questions (CSV / Pipe)</div>
               <button className="btn btn-ghost p-1" onClick={() => setShowBulkModal(false)}>
                 <CloseIcon size={16} />
               </button>
             </div>
             <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 14 }}>
-              Paste questions in format: <code>Question, OptionA, OptionB, OptionC, OptionD, Correct(A/B/C/D), Subject, Difficulty</code>
+              Enter questions with any number of options and correct answer at the end (e.g. <code>A</code> or <code>A,C</code>).
             </p>
 
             <form onSubmit={handleBulkImport}>
@@ -498,11 +670,11 @@ export default function QuestionBank() {
               </div>
 
               <div className="form-group">
-                <label className="form-label">Questions Data (1 per line)</label>
+                <label className="form-label">Questions Data (1 per line, separated by | or ,)</label>
                 <textarea
                   className="form-control"
-                  rows={7}
-                  placeholder={`What is the speed of light?, 3x10^8 m/s, 2x10^8 m/s, 1x10^8 m/s, 4x10^8 m/s, A, Physics, easy\nWhat is the derivative of x^2?, x, 2x, 2, x^2, B, Mathematics, easy`}
+                  rows={8}
+                  placeholder={`What is 2+2? | 3 | 4 | 5 | B\nIs the earth flat? | True | False | B\nSelect primary colors | Red | Green | Blue | Yellow | A,C\nWhich are programming languages? | Python | HTML | Rust | SQL | A,C`}
                   value={bulkText}
                   onChange={e => setBulkText(e.target.value)}
                   style={{ fontFamily: 'monospace', fontSize: 12.5 }}

@@ -185,8 +185,70 @@ export default function ExamRoom() {
     return () => clearInterval(t);
   }, [hasStarted, submitted, handleAutoSubmit]);
 
-  const selectAnswer = (qId, opt) => {
-    setAnswers(prev => ({ ...prev, [qId]: opt }));
+  const isOptionSelected = (qId, letter) => {
+    const val = answers[qId];
+    if (!val) return false;
+    if (Array.isArray(val)) return val.includes(letter);
+    return String(val).split(',').map(s => s.trim().toUpperCase()).includes(letter);
+  };
+
+  const getQuestionOptions = (questionItem) => {
+    if (!questionItem) return [];
+    if (Array.isArray(questionItem.options) && questionItem.options.length > 0) {
+      return questionItem.options.map((opt, idx) => ({
+        letter: String.fromCharCode(65 + idx),
+        text: typeof opt === 'string' ? opt : (opt?.text || String(opt || ''))
+      }));
+    }
+    const legacy = [
+      { letter: 'A', text: questionItem.opt_a || questionItem.optA },
+      { letter: 'B', text: questionItem.opt_b || questionItem.optB },
+      { letter: 'C', text: questionItem.opt_c || questionItem.optC },
+      { letter: 'D', text: questionItem.opt_d || questionItem.optD },
+    ].filter(o => Boolean(o.text));
+    return legacy;
+  };
+
+  const selectAnswer = (questionItem, letter) => {
+    if (!questionItem) return;
+    const qId = questionItem.id;
+    const isMulti = Boolean(
+      questionItem.isMulti ||
+      String(questionItem.correct || '').includes(',') ||
+      (Array.isArray(questionItem.correct) && questionItem.correct.length > 1)
+    );
+
+    setAnswers(prev => {
+      if (isMulti) {
+        const currentAns = prev[qId];
+        let list = [];
+        if (Array.isArray(currentAns)) {
+          list = [...currentAns];
+        } else if (currentAns) {
+          list = String(currentAns).split(',').map(s => s.trim().toUpperCase()).filter(Boolean);
+        }
+
+        if (list.includes(letter)) {
+          list = list.filter(l => l !== letter);
+        } else {
+          list = [...list, letter].sort();
+        }
+
+        if (list.length === 0) {
+          const next = { ...prev };
+          delete next[qId];
+          return next;
+        }
+        return { ...prev, [qId]: list.join(',') };
+      } else {
+        if (prev[qId] === letter) {
+          const next = { ...prev };
+          delete next[qId];
+          return next;
+        }
+        return { ...prev, [qId]: letter };
+      }
+    });
   };
 
   const handleSubmit = async () => {
@@ -222,8 +284,12 @@ export default function ExamRoom() {
   };
 
   const q = questions[current] || questions[0];
-  const opts = ['A', 'B', 'C', 'D'];
-  const optTexts = { A: q?.optA, B: q?.optB, C: q?.optC, D: q?.optD };
+  const qOptions = getQuestionOptions(q);
+  const isMulti = Boolean(
+    q?.isMulti ||
+    String(q?.correct || '').includes(',') ||
+    (Array.isArray(q?.correct) && q?.correct.length > 1)
+  );
 
   return (
     <>
@@ -403,19 +469,64 @@ export default function ExamRoom() {
               </div>
             ) : (
               <>
-                <div className="question-count">Question {current + 1} of {questions.length}</div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
+                  <div className="question-count" style={{ margin: 0 }}>
+                    Question {current + 1} of {questions.length}
+                  </div>
+                  {isMulti ? (
+                    <span className="badge badge-yellow" style={{ fontSize: 11.5, padding: '3px 10px', fontWeight: 600 }}>
+                      Multiple Answers (Select all that apply)
+                    </span>
+                  ) : (
+                    <span className="badge badge-blue" style={{ fontSize: 11, padding: '3px 8px' }}>
+                      Single Choice
+                    </span>
+                  )}
+                </div>
+
                 <div className="question-text">{q?.text}</div>
+
                 <div className="options-list">
-                  {opts.map(opt => (
-                    <div
-                      key={opt}
-                      className={`option-item ${answers[q?.id] === opt ? 'selected' : ''}`}
-                      onClick={() => selectAnswer(q?.id, opt)}
-                    >
-                      <div className="option-letter">{opt}</div>
-                      <div className="option-text">{optTexts[opt]}</div>
-                    </div>
-                  ))}
+                  {qOptions.map(opt => {
+                    const isSelected = isOptionSelected(q?.id, opt.letter);
+                    return (
+                      <div
+                        key={opt.letter}
+                        className={`option-item ${isSelected ? 'selected' : ''}`}
+                        onClick={() => selectAnswer(q, opt.letter)}
+                        style={{ cursor: 'pointer', transition: 'all 0.15s ease' }}
+                      >
+                        <div
+                          className="option-letter"
+                          style={isMulti ? { borderRadius: 6, fontWeight: 700 } : {}}
+                        >
+                          {isSelected && isMulti ? '✓' : opt.letter}
+                        </div>
+                        <div className="option-text" style={{ flex: 1 }}>{opt.text}</div>
+                        {isMulti && (
+                          <div
+                            style={{
+                              width: 18,
+                              height: 18,
+                              borderRadius: 4,
+                              border: `2px solid ${isSelected ? 'var(--primary)' : 'var(--border)'}`,
+                              background: isSelected ? 'var(--primary)' : 'transparent',
+                              color: '#fff',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontSize: 12,
+                              fontWeight: 700,
+                              marginLeft: 8,
+                              flexShrink: 0
+                            }}
+                          >
+                            {isSelected ? '✓' : ''}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </>
             )}
