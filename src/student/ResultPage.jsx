@@ -1,4 +1,5 @@
 import { useLocation, useNavigate } from 'react-router-dom';
+import QuestionDisplay from '../components/QuestionDisplay';
 
 export default function ResultPage() {
   const { state } = useLocation();
@@ -58,8 +59,9 @@ export default function ResultPage() {
 
               return (
                 <div key={q.id} style={{ padding: '12px 14px', background: 'var(--bg-input)', borderRadius: 'var(--radius-sm)', borderLeft: `3px solid ${!selected ? 'var(--border)' : isCorrect ? 'var(--success)' : 'var(--danger)'}` }}>
-                  <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 6 }}>
-                    Q{i + 1}. {q.text}
+                  <div style={{ fontSize: 13, marginBottom: 8 }}>
+                    <span style={{ fontWeight: 600, color: 'var(--text-sub)' }}>Q{i + 1}. </span>
+                    <QuestionDisplay text={q.text} />
                   </div>
                   <div style={{ display: 'flex', gap: 12, fontSize: 12, color: 'var(--text-muted)' }}>
                     <span>Your answer: <strong style={{ color: selected ? (isCorrect ? 'var(--success)' : 'var(--danger)') : 'var(--text-muted)' }}>{selectedText || 'Not answered'}</strong></span>

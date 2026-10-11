@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api } from '../services/api';
 import { PlusIcon, CloseIcon, TrashIcon, UploadIcon, ExamsIcon } from '../components/Icons';
+import QuestionDisplay from '../components/QuestionDisplay';
 
 export default function QuestionBank() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -588,8 +589,8 @@ export default function QuestionBank() {
                   return (
                     <tr key={q.id}>
                       <td style={{ color: 'var(--text-muted)' }}>{i + 1}</td>
-                      <td style={{ maxWidth: 360 }}>
-                        <div style={{ fontWeight: 500, marginBottom: 4 }}>{q.text}</div>
+                      <td style={{ maxWidth: 440 }}>
+                        <QuestionDisplay text={q.text} />
                         <div style={{ fontSize: 12, color: 'var(--text-muted)', display: 'flex', gap: '6px 12px', flexWrap: 'wrap' }}>
                           {opts.map((optText, idx) => (
                             <span key={idx}>

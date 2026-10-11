@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useProctoring } from '../hooks/useProctoring';
 import { ViolationWarning } from '../pages/Login';
 import ThemeToggle from '../components/ThemeToggle';
+import QuestionDisplay from '../components/QuestionDisplay';
 import { ClockIcon, ShieldIcon, LockIcon, KeyIcon, CloseIcon } from '../components/Icons';
 import { getSocket } from '../services/socket';
 import { api } from '../services/api';
@@ -484,7 +485,7 @@ export default function ExamRoom() {
                   )}
                 </div>
 
-                <div className="question-text">{q?.text}</div>
+                <QuestionDisplay text={q?.text} />
 
                 <div className="options-list">
                   {qOptions.map(opt => {

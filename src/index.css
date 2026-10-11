@@ -1234,3 +1234,137 @@ tbody tr:hover td {
   }
 }
 
+/* ══════════════════════════════════════════════════
+   PROGRAMMING CODE BLOCKS & QUESTION FORMATTER
+   ══════════════════════════════════════════════════ */
+.question-formatted-container {
+  margin-bottom: 22px;
+}
+
+.question-desc-text {
+  font-size: 15.5px;
+  font-weight: 500;
+  color: var(--text);
+  line-height: 1.6;
+  white-space: pre-wrap;
+  margin-bottom: 12px;
+}
+
+.inline-code-badge {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 13px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.code-snippet-box {
+  background: #090d16;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--radius);
+  overflow: hidden;
+  margin: 14px 0 18px 0;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+}
+
+.code-snippet-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 14px;
+  background: #111827;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.code-dots {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.code-dots .dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.code-dots .dot.red { background: #ef4444; }
+.code-dots .dot.yellow { background: #f59e0b; }
+.code-dots .dot.green { background: #10b981; }
+
+.lang-tag {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  font-weight: 700;
+  color: #94a3b8;
+  margin-left: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 2px 7px;
+  border-radius: 4px;
+}
+
+.code-copy-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #cbd5e1;
+  font-size: 11.5px;
+  font-weight: 500;
+  padding: 3px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.code-copy-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.code-snippet-body {
+  padding: 14px 0;
+  overflow-x: auto;
+}
+
+.code-pre {
+  margin: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 13.5px;
+  line-height: 1.6;
+  letter-spacing: 0.2px;
+}
+
+.code-line-row {
+  display: flex;
+  padding: 1px 16px;
+  transition: background 0.1s ease;
+}
+
+.code-line-row:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.code-line-row .line-num {
+  width: 32px;
+  text-align: right;
+  padding-right: 16px;
+  color: #475569;
+  user-select: none;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.code-line-row .line-content {
+  flex: 1;
+  white-space: pre;
+  color: #f1f5f9;
+}
+
+
