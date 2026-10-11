@@ -1,4 +1,5 @@
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import ThemeToggle from '../components/ThemeToggle';
 import { 
@@ -8,7 +9,9 @@ import {
   MonitorIcon, 
   ResultsIcon, 
   LogoutIcon,
-  UsersIcon
+  UsersIcon,
+  MenuIcon,
+  CloseIcon
 } from '../components/Icons';
 
 const adminNav = [
@@ -28,18 +31,64 @@ const studentNav = [
 export default function AppLayout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const nav = user?.role === 'admin' ? adminNav : studentNav;
 
+  // Auto-close mobile drawer when switching pages
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [location.pathname]);
+
   const handleLogout = () => {
+    setMobileMenuOpen(false);
     logout();
     navigate('/login');
   };
 
   return (
     <div className="layout">
-      <aside className="sidebar">
-        <div className="sidebar-logo">
+      {/* Mobile Top Header */}
+      <header className="mobile-header">
+        <button
+          type="button"
+          className="mobile-menu-btn"
+          onClick={() => setMobileMenuOpen(prev => !prev)}
+          aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
+        >
+          {mobileMenuOpen ? <CloseIcon size={18} /> : <MenuIcon size={18} />}
+        </button>
+        <div className="mobile-logo">
           Exam<span>Portal</span>
+        </div>
+        <div className="mobile-actions">
+          <ThemeToggle showLabel={false} />
+        </div>
+      </header>
+
+      {/* Backdrop for Mobile Drawer */}
+      {mobileMenuOpen && (
+        <div
+          className="sidebar-backdrop"
+          onClick={() => setMobileMenuOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
+      {/* Sidebar Navigation */}
+      <aside className={`sidebar ${mobileMenuOpen ? 'open' : ''}`}>
+        <div className="sidebar-header-row">
+          <div className="sidebar-logo">
+            Exam<span>Portal</span>
+          </div>
+          <button
+            type="button"
+            className="sidebar-close-btn"
+            onClick={() => setMobileMenuOpen(false)}
+            aria-label="Close menu"
+          >
+            <CloseIcon size={16} />
+          </button>
         </div>
         <nav className="sidebar-nav">
           {nav.map(item => {
@@ -50,6 +99,7 @@ export default function AppLayout() {
                 to={item.to}
                 end={item.to === '/admin' || item.to === '/student'}
                 className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+                onClick={() => setMobileMenuOpen(false)}
               >
                 <span className="nav-icon-wrap"><Icon size={16} /></span>
                 {item.label}
@@ -70,9 +120,11 @@ export default function AppLayout() {
           </button>
         </div>
       </aside>
+
       <main className="main">
         <Outlet />
       </main>
     </div>
   );
 }
+

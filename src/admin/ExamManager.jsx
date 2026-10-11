@@ -108,7 +108,7 @@ export default function ExamManager() {
         <div className="card mb-3">
           <div style={{ fontWeight: 600, marginBottom: 16, fontSize: 14 }}>Create Exam</div>
           <form onSubmit={handleCreate}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div className="grid-2" style={{ gap: 12 }}>
               <div className="form-group">
                 <label className="form-label">Exam Title</label>
                 <input className="form-control" placeholder="e.g. Math Mid-Term" value={form.title} onChange={e => set('title', e.target.value)} required />

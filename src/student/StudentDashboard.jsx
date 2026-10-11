@@ -84,17 +84,17 @@ export default function StudentDashboard() {
           </div>
         ) : (
           exams.map(exam => (
-            <div key={exam.id} className="card card-sm" style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            <div key={exam.id} className="card card-sm exam-card-responsive">
               <div style={{ flex: 1 }}>
                 <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>{exam.title}</div>
-                <div style={{ display: 'flex', gap: 16, fontSize: 12, color: 'var(--text-muted)' }}>
+                <div className="exam-meta-tags" style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 16px', fontSize: 12, color: 'var(--text-muted)' }}>
                   <span>{exam.subject}</span>
                   <span>{exam.duration_mins || exam.duration} min</span>
                   <span>{exam.total_questions || exam.total} questions</span>
                   <span>{exam.date} {exam.time}</span>
                 </div>
               </div>
-            <div className="flex gap-2" style={{ alignItems: 'center' }}>
+            <div className="flex gap-2 exam-card-actions" style={{ alignItems: 'center', flexWrap: 'wrap' }}>
               {exam.requireCode && (
                 <span className="badge badge-yellow" style={{ fontSize: 11, gap: 4 }}>
                   <LockIcon size={11} /> Code Protected

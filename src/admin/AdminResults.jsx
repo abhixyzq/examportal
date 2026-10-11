@@ -48,7 +48,7 @@ export default function AdminResults() {
         </div>
       </div>
 
-      <div className="stats-row" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
+      <div className="stats-row">
         <div className="stat-card">
           <div className="stat-label">Avg Score</div>
           <div className="stat-value">{avgScore}%</div>

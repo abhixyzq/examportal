@@ -72,7 +72,7 @@ export default function QuestionBank() {
               <label className="form-label">Question Text</label>
               <textarea className="form-control" placeholder="Enter question..." value={form.text} onChange={e => setForm(f => ({ ...f, text: e.target.value }))} required />
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div className="grid-2" style={{ gap: 12 }}>
               {['A','B','C','D'].map(opt => (
                 <div className="form-group" key={opt}>
                   <label className="form-label">Option {opt}</label>
@@ -80,7 +80,7 @@ export default function QuestionBank() {
                 </div>
               ))}
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+            <div className="grid-3" style={{ gap: 12 }}>
               <div className="form-group">
                 <label className="form-label">Correct Option</label>
                 <select className="form-control" value={form.correct} onChange={e => setForm(f => ({ ...f, correct: e.target.value }))}>

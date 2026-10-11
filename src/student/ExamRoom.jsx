@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useProctoring } from '../hooks/useProctoring';
 import { ViolationWarning } from '../pages/Login';
 import ThemeToggle from '../components/ThemeToggle';
-import { ClockIcon, ShieldIcon, LockIcon, KeyIcon } from '../components/Icons';
+import { ClockIcon, ShieldIcon, LockIcon, KeyIcon, CloseIcon } from '../components/Icons';
 import { getSocket } from '../services/socket';
 import { api } from '../services/api';
 
@@ -27,6 +27,8 @@ export default function ExamRoom() {
   const [currentExam, setCurrentExam] = useState(null);
   const [questions, setQuestions] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [showMobileNav, setShowMobileNav] = useState(false);
+
 
   useEffect(() => {
     Promise.all([
@@ -356,7 +358,7 @@ export default function ExamRoom() {
         {/* Main exam area */}
         <div className="exam-main">
           <div className="exam-topbar">
-            <div className="flex gap-2" style={{ alignItems: 'center' }}>
+            <div className="flex gap-2 exam-topbar-left" style={{ alignItems: 'center' }}>
               <div className="exam-title">{currentExam?.title || 'Exam'}</div>
               {requiresCode && (
                 <span className="badge badge-yellow" style={{ fontSize: 11, gap: 4 }}>
@@ -367,7 +369,7 @@ export default function ExamRoom() {
                 <ShieldIcon size={12} /> Proctored
               </span>
             </div>
-            <div className="flex gap-2" style={{ alignItems: 'center' }}>
+            <div className="flex gap-2 exam-topbar-right" style={{ alignItems: 'center' }}>
               {violationCount > 0 ? (
                 <span className="badge badge-red" style={{ fontSize: 12 }}>
                   {violationCount} / {maxViolations} Violation{violationCount > 1 ? 's' : ''}
@@ -378,6 +380,14 @@ export default function ExamRoom() {
                 </span>
               )}
               <Timer secondsLeft={secondsLeft} />
+              <button 
+                type="button"
+                className="btn btn-ghost btn-sm mobile-palette-btn"
+                onClick={() => setShowMobileNav(prev => !prev)}
+                title="Open question palette"
+              >
+                Q {current + 1}/{questions.length}
+              </button>
               <ThemeToggle showLabel={false} />
               <button className="btn btn-primary btn-sm" onClick={() => setConfirmSubmit(true)}>
                 Submit
@@ -429,9 +439,29 @@ export default function ExamRoom() {
           </div>
         </div>
 
+        {/* Mobile backdrop for question nav drawer */}
+        {showMobileNav && (
+          <div
+            className="sidebar-backdrop"
+            onClick={() => setShowMobileNav(false)}
+            aria-hidden="true"
+          />
+        )}
+
         {/* Question nav sidebar */}
-        <div className="question-nav">
-          <div className="nav-title">Questions</div>
+        <div className={`question-nav ${showMobileNav ? 'mobile-open' : ''}`}>
+          <div className="flex-between mb-2">
+            <div className="nav-title" style={{ margin: 0 }}>Questions ({questions.length})</div>
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm mobile-close-nav-btn"
+              onClick={() => setShowMobileNav(false)}
+              aria-label="Close question palette"
+              style={{ padding: '2px 6px' }}
+            >
+              <CloseIcon size={14} />
+            </button>
+          </div>
           <div className="q-grid">
             {questions.map((question, i) => {
               const ans = answers[question.id];
@@ -441,7 +471,10 @@ export default function ExamRoom() {
                 <div
                   key={question.id}
                   className={`q-dot ${cls}`}
-                  onClick={() => setCurrent(i)}
+                  onClick={() => {
+                    setCurrent(i);
+                    setShowMobileNav(false);
+                  }}
                 >
                   {i + 1}
                 </div>
