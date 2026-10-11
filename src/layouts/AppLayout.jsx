@@ -7,13 +7,15 @@ import {
   ExamsIcon, 
   MonitorIcon, 
   ResultsIcon, 
-  LogoutIcon 
+  LogoutIcon,
+  UsersIcon
 } from '../components/Icons';
 
 const adminNav = [
   { to: '/admin', label: 'Dashboard', Icon: DashboardIcon },
-  { to: '/admin/questions', label: 'Questions', Icon: QuestionsIcon },
+  { to: '/admin/candidates', label: 'Candidates', Icon: UsersIcon },
   { to: '/admin/exams', label: 'Exams', Icon: ExamsIcon },
+  { to: '/admin/questions', label: 'Questions', Icon: QuestionsIcon },
   { to: '/admin/monitor', label: 'Live Monitor', Icon: MonitorIcon },
   { to: '/admin/results', label: 'Results', Icon: ResultsIcon },
 ];

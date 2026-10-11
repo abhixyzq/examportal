@@ -14,6 +14,11 @@ export default function StudentDashboard() {
   const [codeError, setCodeError] = useState('');
 
   const handleStartExam = (exam) => {
+    if (user?.exam_id && Number(user.exam_id) !== Number(exam.id)) {
+      alert(`You are enrolled for a different examination. Access to "${exam.title}" is restricted.`);
+      return;
+    }
+
     if (exam.requireCode) {
       // Check if already authenticated this session
       const isAuth = sessionStorage.getItem(`ep_exam_auth_${exam.id}`) === 'true';
@@ -49,8 +54,15 @@ export default function StudentDashboard() {
   return (
     <div>
       <div className="page-header">
-        <div className="page-title">Hello, {user?.name}</div>
-        <div className="page-sub">Your available exams are listed below</div>
+        <div className="flex gap-2" style={{ alignItems: 'center', marginBottom: 4 }}>
+          <div className="page-title">Hello, {user?.name}</div>
+          {user?.roll_no && (
+            <span className="badge badge-purple" style={{ fontFamily: 'monospace', fontSize: 13 }}>
+              Roll: {user.roll_no}
+            </span>
+          )}
+        </div>
+        <div className="page-sub">Verified Candidate &bull; Your eligible exams are listed below</div>
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 720 }}>

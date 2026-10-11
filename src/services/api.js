@@ -41,7 +41,27 @@ export const api = {
       body: JSON.stringify({ email, password, role }),
     });
   },
+  studentLogin: async (roll_no) => {
+    return request('/auth/student-login', {
+      method: 'POST',
+      body: JSON.stringify({ roll_no }),
+    });
+  },
   getMe: async () => request('/auth/me'),
+
+  // Candidates / Whitelist
+  getCandidates: async (examId) => request(`/candidates${examId ? `?examId=${examId}` : ''}`),
+  addCandidate: async (candidate) => request('/candidates', {
+    method: 'POST',
+    body: JSON.stringify(candidate),
+  }),
+  bulkAddCandidates: async (candidates, exam_id) => request('/candidates/bulk', {
+    method: 'POST',
+    body: JSON.stringify({ candidates, exam_id }),
+  }),
+  deleteCandidate: async (id) => request(`/candidates/${id}`, {
+    method: 'DELETE',
+  }),
 
   // Questions
   getQuestions: async () => request('/questions'),

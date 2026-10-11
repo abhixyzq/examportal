@@ -6,6 +6,7 @@ import questionRoutes from './routes/questions.js';
 import examRoutes from './routes/exams.js';
 import submissionRoutes from './routes/submissions.js';
 import monitorRoutes from './routes/monitor.js';
+import candidateRoutes from './routes/candidates.js';
 
 const app = express();
 
@@ -29,6 +30,7 @@ app.use('/api/questions', questionRoutes);
 app.use('/api/exams', examRoutes);
 app.use('/api/submissions', submissionRoutes);
 app.use('/api/monitor', monitorRoutes);
+app.use('/api/candidates', candidateRoutes);
 
 // Error Handling Middleware
 app.use((err, req, res, next) => {

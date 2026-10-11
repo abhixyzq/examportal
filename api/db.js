@@ -66,6 +66,13 @@ const store = {
   ],
   submissions: [],
   violations: [],
+  candidates: [
+    { id: 1, roll_no: '2026-CS-101', name: 'Rahul Sharma', exam_id: null },
+    { id: 2, roll_no: '2026-CS-102', name: 'Priya Patel', exam_id: null },
+    { id: 3, roll_no: '2026-CS-103', name: 'Amit Kumar', exam_id: null },
+    { id: 4, roll_no: '2026-CS-104', name: 'Sneha Singh', exam_id: null },
+    { id: 5, roll_no: '2026-CS-105', name: 'Vikas Verma', exam_id: null },
+  ],
   activeStudents: {}, // In-memory telemetry cache for live monitor
 };
 
@@ -140,6 +147,15 @@ export async function ensureSchema() {
         violation_type VARCHAR(50) NOT NULL,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       );
+
+      CREATE TABLE IF NOT EXISTS candidates (
+        id SERIAL PRIMARY KEY,
+        roll_no VARCHAR(100) NOT NULL,
+        name VARCHAR(150) NOT NULL,
+        exam_id INT,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS idx_candidates_roll ON candidates(LOWER(roll_no));
     `);
 
     // Seed default exams if empty
@@ -162,6 +178,17 @@ export async function ensureSchema() {
           `INSERT INTO questions (text, opt_a, opt_b, opt_c, opt_d, correct, subject, difficulty)
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
           [q.text, q.optA, q.optB, q.optC, q.optD, q.correct, q.subject, q.difficulty]
+        );
+      }
+    }
+
+    // Seed default candidates if empty
+    const checkCand = await p.query('SELECT COUNT(*) FROM candidates');
+    if (parseInt(checkCand.rows[0].count) === 0) {
+      for (const c of store.candidates) {
+        await p.query(
+          `INSERT INTO candidates (roll_no, name, exam_id) VALUES ($1, $2, $3)`,
+          [c.roll_no, c.name, c.exam_id]
         );
       }
     }

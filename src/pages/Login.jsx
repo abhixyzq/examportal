@@ -39,9 +39,10 @@ export function ViolationWarning({ type, remaining, onDismiss, onReenter }) {
 export function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
+  const [role, setRole] = useState('student');
+  const [rollNo, setRollNo] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState('student');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -49,30 +50,57 @@ export function Login() {
     e.preventDefault();
     setError('');
     setLoading(true);
+
     try {
-      // 1. Try real backend API
-      try {
-        const res = await api.login(email, password, role);
-        if (res?.user && res?.token) {
-          login(res.user, res.token);
-          navigate(res.user.role === 'admin' ? '/admin' : '/student');
+      if (role === 'student') {
+        if (!rollNo.trim()) {
+          setError('Please enter your Exam Roll Number');
           setLoading(false);
           return;
         }
-      } catch (apiErr) {
-        // Fall back to demo authentication if backend is not reachable
-        console.warn('API login error, trying demo auth:', apiErr.message);
-      }
 
-      // 2. Demo credentials fallback
-      if (role === 'admin' && email === 'admin@exam.com' && password === 'admin123') {
-        login({ id: 1, name: 'Admin', email, role: 'admin' }, 'demo-admin-token');
-        navigate('/admin');
-      } else if (role === 'student' && email && password === 'student123') {
-        login({ id: 2, name: email.split('@')[0], email, role: 'student' }, 'demo-student-token');
-        navigate('/student');
+        try {
+          const res = await api.studentLogin(rollNo);
+          if (res?.user && res?.token) {
+            login(res.user, res.token);
+            navigate('/student');
+            setLoading(false);
+            return;
+          }
+        } catch (apiErr) {
+          setError(apiErr.message || 'Roll number not verified. Only candidates who filled the examination form are allowed.');
+          setLoading(false);
+          return;
+        }
+
+        // Demo fallback if offline
+        const clean = rollNo.trim().toUpperCase();
+        if (clean === '2026-CS-101' || clean === 'ROLL-101') {
+          login({ id: 2, name: 'Rahul Sharma', roll_no: '2026-CS-101', role: 'student' }, 'demo-student-token');
+          navigate('/student');
+        } else {
+          setError(`Roll Number "${clean}" is not found in the approved candidate list!`);
+        }
       } else {
-        setError('Invalid credentials. Check email or password.');
+        // Admin Login
+        try {
+          const res = await api.login(email, password, 'admin');
+          if (res?.user && res?.token) {
+            login(res.user, res.token);
+            navigate('/admin');
+            setLoading(false);
+            return;
+          }
+        } catch (apiErr) {
+          console.warn('API admin login error, checking fallback:', apiErr.message);
+        }
+
+        if (email === 'admin@exam.com' && password === 'admin123') {
+          login({ id: 1, name: 'Admin', email, role: 'admin' }, 'demo-admin-token');
+          navigate('/admin');
+        } else {
+          setError('Invalid Admin credentials.');
+        }
       }
     } catch {
       setError('Login failed. Please check credentials.');
@@ -86,7 +114,9 @@ export function Login() {
         <div className="flex-between mb-1" style={{ alignItems: 'flex-start' }}>
           <div>
             <div className="login-title">Exam<span style={{ color: 'var(--primary)' }}>Portal</span></div>
-            <div className="login-sub" style={{ marginBottom: 20 }}>Sign in to continue</div>
+            <div className="login-sub" style={{ marginBottom: 20 }}>
+              {role === 'student' ? 'Candidate Exam Verification' : 'Invigilator & Admin Sign In'}
+            </div>
           </div>
           <ThemeToggle showLabel={false} />
         </div>
@@ -94,46 +124,84 @@ export function Login() {
         <div className="flex gap-2 mb-3">
           <button
             className={`btn w-full ${role === 'student' ? 'btn-primary' : 'btn-ghost'}`}
-            onClick={() => setRole('student')}
-          >Student</button>
+            onClick={() => { setRole('student'); setError(''); }}
+          >Student Candidate</button>
           <button
             className={`btn w-full ${role === 'admin' ? 'btn-primary' : 'btn-ghost'}`}
-            onClick={() => setRole('admin')}
-          >Admin</button>
+            onClick={() => { setRole('admin'); setError(''); }}
+          >Admin / Invigilator</button>
         </div>
 
         <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label className="form-label">Email</label>
-            <input
-              className="form-control"
-              type="email"
-              placeholder="you@example.com"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              required
-            />
-          </div>
-          <div className="form-group">
-            <label className="form-label">Password</label>
-            <input
-              className="form-control"
-              type="password"
-              placeholder="••••••••"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              required
-            />
-          </div>
-          {error && <div style={{ color: 'var(--danger)', fontSize: 13, marginBottom: 12 }}>{error}</div>}
-          <button className="btn btn-primary w-full" type="submit" disabled={loading}>
-            {loading ? 'Signing in...' : 'Sign In'}
+          {role === 'student' ? (
+            <div className="form-group">
+              <label className="form-label">Exam Roll Number</label>
+              <input
+                className="form-control"
+                type="text"
+                placeholder="e.g. 2026-CS-101"
+                value={rollNo}
+                onChange={e => setRollNo(e.target.value)}
+                autoFocus
+                required
+                style={{ fontSize: 16, letterSpacing: '0.5px', textTransform: 'uppercase' }}
+              />
+              <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 6 }}>
+                Only pre-registered candidates who filled the examination form are allowed.
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="form-group">
+                <label className="form-label">Admin Email</label>
+                <input
+                  className="form-control"
+                  type="email"
+                  placeholder="admin@exam.com"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Password</label>
+                <input
+                  className="form-control"
+                  type="password"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  required
+                />
+              </div>
+            </>
+          )}
+
+          {error && (
+            <div style={{ 
+              color: 'var(--danger)', 
+              fontSize: 13, 
+              marginBottom: 14, 
+              background: 'rgba(239, 68, 68, 0.1)', 
+              padding: '8px 12px', 
+              borderRadius: 'var(--radius-sm)',
+              border: '1px solid rgba(239, 68, 68, 0.2)'
+            }}>
+              {error}
+            </div>
+          )}
+
+          <button className="btn btn-primary w-full" type="submit" disabled={loading} style={{ height: 42 }}>
+            {loading ? 'Verifying...' : (role === 'student' ? 'Verify & Enter Exam Portal' : 'Sign In')}
           </button>
         </form>
 
         <div style={{ marginTop: 20, padding: '10px 14px', background: 'var(--bg-input)', borderRadius: 'var(--radius-sm)', fontSize: 12, color: 'var(--text-muted)' }}>
-          <div><strong style={{ color: 'var(--text-sub)' }}>Demo Admin:</strong> admin@exam.com / admin123</div>
-          <div style={{ marginTop: 4 }}><strong style={{ color: 'var(--text-sub)' }}>Demo Student:</strong> any email / student123</div>
+          {role === 'student' ? (
+            <div><strong style={{ color: 'var(--text-sub)' }}>Sample Approved Roll No:</strong> 2026-CS-101, 2026-CS-102</div>
+          ) : (
+            <div><strong style={{ color: 'var(--text-sub)' }}>Demo Admin:</strong> admin@exam.com / admin123</div>
+          )}
         </div>
       </div>
     </div>

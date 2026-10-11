@@ -6,6 +6,7 @@ import AppLayout from './layouts/AppLayout';
 import AdminDashboard from './admin/AdminDashboard';
 import QuestionBank from './admin/QuestionBank';
 import ExamManager from './admin/ExamManager';
+import CandidateManager from './admin/CandidateManager';
 import LiveMonitor from './admin/LiveMonitor';
 import AdminResults from './admin/AdminResults';
 import StudentDashboard from './student/StudentDashboard';
@@ -40,6 +41,7 @@ export default function App() {
             <ProtectedRoute role="admin"><AppLayout /></ProtectedRoute>
           }>
             <Route index element={<AdminDashboard />} />
+            <Route path="candidates" element={<CandidateManager />} />
             <Route path="questions" element={<QuestionBank />} />
             <Route path="exams" element={<ExamManager />} />
             <Route path="monitor" element={<LiveMonitor />} />
