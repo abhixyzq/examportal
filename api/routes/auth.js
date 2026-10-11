@@ -17,41 +17,27 @@ router.post('/login', async (req, res) => {
     let user = null;
 
     if (db.isPostgres()) {
-      const result = await db.query('SELECT * FROM users WHERE LOWER(email) = LOWER($1)', [email]);
+      const result = await db.query('SELECT * FROM users WHERE LOWER(email) = LOWER($1) AND role = $2', [email, 'admin']);
       user = result.rows[0];
     } else {
-      user = db.store.users.find(u => u.email.toLowerCase() === email.toLowerCase());
+      user = db.store.users.find(u => u.email.toLowerCase() === email.toLowerCase() && u.role === 'admin');
     }
 
-    // Default demo account auto-resolution
-    const isAdminDemo = (email === 'admin@exam.com' && password === 'admin123');
-    const isStudentDemo = (password === 'student123');
+    if (!user) {
+      return res.status(401).json({ error: 'Admin account not found.' });
+    }
 
-    if (!user && (isAdminDemo || isStudentDemo)) {
-      const newUser = {
-        id: Date.now(),
-        name: isAdminDemo ? 'Admin' : (email.split('@')[0] || 'Student'),
-        email,
-        role: role || (isAdminDemo ? 'admin' : 'student'),
-        roll_no: `ROLL-${Math.floor(1000 + Math.random() * 9000)}`
-      };
+    // Verify password - check plain 'admin123' or hash
+    let passwordValid = false;
+    if (user.password_hash === 'admin123' || user.password_hash === password) {
+      passwordValid = true;
+    } else if (user.password_hash && user.password_hash.startsWith('$2')) {
+      const bcrypt = await import('bcryptjs');
+      passwordValid = await bcrypt.compare(password, user.password_hash);
+    }
 
-      if (db.isPostgres()) {
-        try {
-          const ins = await db.query(
-            'INSERT INTO users (name, email, password_hash, role, roll_no) VALUES ($1, $2, $3, $4, $5) RETURNING *',
-            [newUser.name, newUser.email, 'demo_hash', newUser.role, newUser.roll_no]
-          );
-          user = ins.rows[0];
-        } catch {
-          user = newUser;
-        }
-      } else {
-        db.store.users.push(newUser);
-        user = newUser;
-      }
-    } else if (!user) {
-      return res.status(401).json({ error: 'User not found. Use admin123 or student123 for demo.' });
+    if (!passwordValid) {
+      return res.status(401).json({ error: 'Incorrect password.' });
     }
 
     const token = jwt.sign(

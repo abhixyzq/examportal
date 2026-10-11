@@ -83,14 +83,9 @@ export function Login() {
             return;
           }
         } catch (apiErr) {
-          console.warn('API admin login error, checking fallback:', apiErr.message);
-        }
-
-        if (email === 'admin@exam.com' && password === 'admin123') {
-          login({ id: 1, name: 'Admin', email, role: 'admin' }, 'demo-admin-token');
-          navigate('/admin');
-        } else {
-          setError('Invalid Admin credentials.');
+          setError(apiErr.message || 'Invalid Admin credentials. Please check email and password.');
+          setLoading(false);
+          return;
         }
       }
     } catch {

@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { getStoredExams, saveStoredExams } from '../data/demo';
 import { PlusIcon, CloseIcon, TrashIcon, LockIcon, KeyIcon } from '../components/Icons';
 import { api } from '../services/api';
 
@@ -31,16 +30,12 @@ export default function ExamManager() {
   const loadExams = async () => {
     try {
       const data = await api.getExams();
-      if (Array.isArray(data)) {
-        setExams(data);
-        saveStoredExams(data);
-        setLoading(false);
-        return;
-      }
-    } catch {}
-    const local = getStoredExams();
-    setExams(local || []);
-    setLoading(false);
+      setExams(Array.isArray(data) ? data : []);
+    } catch {
+      setExams([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -60,56 +55,41 @@ export default function ExamManager() {
     };
 
     try {
-      const res = await api.createExam(newExam);
-      if (res?.id) {
-        loadExams();
-        setShowForm(false);
-        setForm({ ...EMPTY_EXAM, accessCode: generateRandomCode() });
-        return;
-      }
-    } catch {}
-
-    const localExam = { ...newExam, id: Date.now(), status: 'active' };
-    const updated = [localExam, ...exams];
-    setExams(updated);
-    saveStoredExams(updated);
-    setForm({ ...EMPTY_EXAM, accessCode: generateRandomCode() });
-    setShowForm(false);
+      await api.createExam(newExam);
+      await loadExams();
+      setShowForm(false);
+      setForm({ ...EMPTY_EXAM, accessCode: generateRandomCode() });
+    } catch (err) {
+      alert('Failed to create exam: ' + (err.message || 'Server error'));
+    }
   };
 
   const handleDelete = async (id) => {
     if (!window.confirm('Are you sure you want to delete this exam?')) return;
     try {
       await api.deleteExam(id);
-    } catch {}
-    const updated = exams.filter(e => e.id !== id);
-    setExams(updated);
-    saveStoredExams(updated);
+      setExams(prev => prev.filter(e => e.id !== id));
+    } catch (err) {
+      alert('Failed to delete: ' + (err.message || 'Server error'));
+    }
   };
 
   const toggleLiveResult = async (id) => {
     try {
-      await api.toggleLiveResult(id);
+      const updated = await api.toggleLiveResult(id);
+      if (updated?.id) {
+        setExams(prev => prev.map(e => e.id === id ? { ...e, live_result: updated.live_result } : e));
+      }
     } catch {}
-    const updated = exams.map(e => e.id === id ? { ...e, liveResult: !e.liveResult, live_result: !e.live_result } : e);
-    setExams(updated);
-    saveStoredExams(updated);
   };
 
-  const toggleRequireCode = (id) => {
-    const updated = exams.map(e => {
-      if (e.id === id) {
-        const next = !e.requireCode;
-        return {
-          ...e,
-          requireCode: next,
-          accessCode: next ? (e.accessCode || generateRandomCode()) : e.accessCode,
-        };
+  const toggleRequireCode = async (id) => {
+    try {
+      const updated = await api.toggleRequireCode(id);
+      if (updated?.id) {
+        setExams(prev => prev.map(e => e.id === id ? { ...e, require_code: updated.require_code } : e));
       }
-      return e;
-    });
-    setExams(updated);
-    saveStoredExams(updated);
+    } catch {}
   };
 
   return (
@@ -251,18 +231,18 @@ export default function ExamManager() {
                   <td style={{ fontWeight: 500 }}>{exam.title}</td>
                   <td>{exam.subject}</td>
                   <td style={{ color: 'var(--text-sub)' }}>{exam.date} {exam.time}</td>
-                  <td>{exam.duration}m</td>
-                  <td>{exam.total}</td>
+                  <td>{exam.duration_mins || exam.duration}m</td>
+                  <td>{exam.total_questions || exam.total}</td>
                   <td>
                     <span className={`badge ${exam.status === 'active' ? 'badge-green' : exam.status === 'upcoming' ? 'badge-blue' : 'badge-gray'}`}>
                       {exam.status}
                     </span>
                   </td>
                   <td>
-                    {exam.requireCode ? (
+                    {(exam.require_code || exam.requireCode) ? (
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                         <span className="badge badge-yellow" style={{ fontFamily: 'monospace', letterSpacing: 1, fontWeight: 700, gap: 5 }}>
-                          <LockIcon size={11} /> {exam.accessCode}
+                          <LockIcon size={11} /> {exam.access_code || exam.accessCode}
                         </span>
                         <button
                           type="button"
@@ -292,7 +272,7 @@ export default function ExamManager() {
                   </td>
                   <td>
                     <label className="toggle">
-                      <input type="checkbox" checked={exam.liveResult} onChange={() => toggleLiveResult(exam.id)} />
+                      <input type="checkbox" checked={!!(exam.live_result || exam.liveResult)} onChange={() => toggleLiveResult(exam.id)} />
                       <span className="toggle-slider" />
                     </label>
                   </td>
