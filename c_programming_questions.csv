@@ -1,99 +1,21 @@
-Question,Option A,Option B,Option C,Option D,Correct Answer
-"Ram wrote the following code to greet his friend. What will be the output?
-
-#include <stdio.h>
-int main() {
-    printf(""Hello\nWorld"");
-    return 0;
-}","Hello World (both words on one line)","Hello and World on two separate lines","HelloWorld (no space, one line)","Hello\nWorld (printed exactly like this)",B
-"Priya tried to compile the program below but got a compilation error. On which line is the mistake?
-
-#include <stdio.h>
-int main() {
-    int a = 10
-    printf(""%d"", a);
-    return 0;
-}","Line 1 – header file is wrong","Line 3 – semicolon is missing","Line 4 – wrong format specifier","Line 5 – return is not allowed",B
-"Aman has saved his program as hello.c. He wants GCC to compile it into an executable file named hello. Which command should he type?","gcc hello.c -o hello","compile hello.c hello","gcc -o hello.c hello","run gcc hello.c",A
-"Sneha wants to store the price of a pen, which is 45.75. Which data type is the most suitable?","int","char","float","void",C
-"While naming variables, Rahul used the following names. Which one is NOT a valid variable name in C?","total_marks","_count","2marks","sum1",C
-"Anjali wants to divide 7 by 2 and expected 3.5. What will her code actually print?
-
-int a = 7, b = 2;
-printf(""%d"", a / b);","3.5","3","4","2",B
-"What value will Karan see on the screen after running this code?
-
-int x = 5 + 3 * 2;
-printf(""%d"", x);","16","11","13","10",B
-"Meera declared float price = 99.5; and wants to print it. Which format specifier should she use in printf?","%d","%c","%f","%s",C
-"Vikram wrote this code to read a number from the keyboard, but the program behaves incorrectly. What is wrong?
-
-int num;
-scanf(""%d"", num);","%d should be %f","The & operator is missing before num","num should be declared as char","scanf should be replaced with printf",B
-"Neha accidentally typed = instead of == inside the if condition. What will be the output?
-
-int x = 5;
-if (x = 10)
-    printf(""Equal"");
-else
-    printf(""Not Equal"");","Equal","Not Equal","Compilation error","No output",A
-"Arjun's marks are 72. What grade will the program print?
-
-int marks = 72;
-if (marks >= 90)
-    printf(""A"");
-else if (marks >= 75)
-    printf(""B"");
-else if (marks >= 60)
-    printf(""C"");
-else
-    printf(""D"");","A","B","C","D",C
-"Pooja forgot to put break after some cases of this switch statement. What will be the output?
-
-int day = 2;
-switch (day) {
-    case 1: printf(""Mon ""); break;
-    case 2: printf(""Tue "");
-    case 3: printf(""Wed ""); break;
-    case 4: printf(""Thu "");
-}","Tue","Tue Wed","Tue Wed Thu","Mon Tue",B
-"Rohan runs the following loop. What will be printed?
-
-int i;
-for (i = 1; i <= 3; i++)
-    printf(""%d "", i * 2);","1 2 3","2 4 6","2 4 6 8","0 2 4",B
-"Divya wants to know how many times the statement inside this loop will execute?
-
-int i;
-for (i = 0; i < 5; i++) {
-    printf(""C "");
-}","4 times","5 times","6 times","Infinite times",B
-"Imran expected this program to print 1 2 3 4 5, but it keeps printing 1 forever. What is the reason?
-
-int i = 1;
-while (i <= 5) {
-    printf(""%d "", i);
-}","while cannot be used for printing","The value of i is never incremented","The condition should be i < 5","printf is written incorrectly",B
-"Kavya uses a do-while loop with a condition that is false from the start. How many times will Hi be printed?
-
-int n = 10;
-do {
-    printf(""Hi "");
-} while (n < 5);","0 times","1 time","5 times","10 times",B
-"Aditya wrote the following code. What will be the output?
-
-int a = 5;
-int b = a++;
-printf(""%d %d"", a, b);","5 5","6 6","6 5","5 6",C
-"Simran is checking a condition using a logical operator. What will this code print?
-
-int a = 4, b = 0;
-printf(""%d"", (a > 2) && (b > 1));","1","0","4","Error",B
-"Farhan has finished typing his program in Dev-C++. Which keyboard shortcut will compile and run it in one step?","F2","F5","F9","F11",D
-"Isha wants to print the sum of numbers from 1 to 5 (the answer should be 15). Which statement should replace the blank?
-
-int i, sum = 0;
-for (i = 1; i <= 5; i++) {
-    ________
-}
-printf(""%d"", sum);","sum = i;","sum = sum + i;","i = sum + i;","sum + i;",B
+Q.No.,Question,Option A,Option B,Option C,Option D,Correct Answer
+1,"Ram wrote the following code to greet his friend. What will be the output? #include <stdio.h> int main() { printf(""Hello\nWorld""); return 0; }",Hello World (both words on one line),Hello and World on two separate lines,"HelloWorld (no space, one line)",Hello\nWorld (printed exactly like this),B
+2,"Priya tried to compile the program below but got a compilation error. On which line is the mistake? #include <stdio.h> int main() { int a = 10 printf(""%d"", a); return 0; }",Line 1 – header file is wrong,Line 3 – semicolon is missing,Line 4 – wrong format specifier,Line 5 – return is not allowed,B
+3,Aman has saved his program as hello.c. He wants GCC to compile it into an executable file named hello. Which command should he type?,gcc hello.c -o hello,compile hello.c hello,gcc -o hello.c hello,run gcc hello.c,A
+4,"Sneha wants to store the price of a pen, which is 45.75. Which data type is the most suitable?",int,char,float,void,C
+5,"While naming variables, Rahul used the following names. Which one is NOT a valid variable name in C?",total_marks,_count,2marks,sum1,C
+6,"Anjali wants to divide 7 by 2 and expected 3.5. What will her code actually print? int a = 7, b = 2; printf(""%d"", a / b);",3.5,3,4,2,B
+7,"What value will Karan see on the screen after running this code? int x = 5 + 3 * 2; printf(""%d"", x);",16,11,13,10,B
+8,Meera declared float price = 99.5; and wants to print it. Which format specifier should she use in printf?,%d,%c,%f,%s,C
+9,"Vikram wrote this code to read a number from the keyboard, but the program behaves incorrectly. What is wrong? int num; scanf(""%d"", num);",%d should be %f,The & operator is missing before num,num should be declared as char,scanf should be replaced with printf,B
+10,"Neha accidentally typed = instead of == inside the if condition. What will be the output? int x = 5; if (x = 10) printf(""Equal""); else printf(""Not Equal"");",Equal,Not Equal,Compilation error,No output,A
+11,"Arjun's marks are 72. What grade will the program print? int marks = 72; if (marks >= 90) printf(""A""); else if (marks >= 75) printf(""B""); else if (marks >= 60) printf(""C""); else printf(""D"");",A,B,C,D,C
+12,"Pooja forgot to put break after some cases of this switch statement. What will be the output? int day = 2; switch (day) { case 1: printf(""Mon ""); break; case 2: printf(""Tue ""); case 3: printf(""Wed ""); break; case 4: printf(""Thu ""); }",Tue,Tue Wed,Tue Wed Thu,Mon Tue,B
+13,"Rohan runs the following loop. What will be printed? int i; for (i = 1; i <= 3; i++) printf(""%d "", i * 2);",1 2 3,2 4 6,2 4 6 8,0 2 4,B
+14,"Divya wants to know how many times the statement inside this loop will execute? int i; for (i = 0; i < 5; i++) { printf(""C ""); }",4 times,5 times,6 times,Infinite times,B
+15,"Imran expected this program to print 1 2 3 4 5, but it keeps printing 1 forever. What is the reason? int i = 1; while (i <= 5) { printf(""%d "", i); }",while cannot be used for printing,The value of i is never incremented,The condition should be i < 5,printf is written incorrectly,B
+16,"Kavya uses a do-while loop with a condition that is false from the start. How many times will Hi be printed? int n = 10; do { printf(""Hi ""); } while (n < 5);",0 times,1 time,5 times,10 times,B
+17,"Aditya wrote the following code. What will be the output? int a = 5; int b = a++; printf(""%d %d"", a, b);",5 5,6 6,6 5,5 6,C
+18,"Simran is checking a condition using a logical operator. What will this code print? int a = 4, b = 0; printf(""%d"", (a > 2) && (b > 1));",1,0,4,Error,B
+19,Farhan has finished typing his program in Dev-C++. Which keyboard shortcut will compile and run it in one step?,F2,F5,F9,F11,D
+20,"Isha wants to print the sum of numbers from 1 to 5 (the answer should be 15). Which statement should replace the blank? int i, sum = 0; for (i = 1; i <= 5; i++) { ________ } printf(""%d"", sum);",sum = i;,sum = sum + i;,i = sum + i;,sum + i;,B
