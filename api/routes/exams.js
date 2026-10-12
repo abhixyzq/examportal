@@ -145,13 +145,7 @@ router.post('/:id/verify-code', authenticate, async (req, res) => {
     const entered = String(code || '').trim().toUpperCase();
     const actual = String(exam.access_code || exam.accessCode || '').trim().toUpperCase();
 
-    const isMatch = entered && (
-      entered === actual ||
-      (actual === 'CLUB26A' && entered === 'CLUB26') ||
-      (actual === 'CLUB26' && entered === 'CLUB26A')
-    );
-
-    if (isMatch) {
+    if (entered && entered === actual) {
       return res.json({ valid: true, message: 'Passcode verified successfully' });
     }
 
