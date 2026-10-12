@@ -1,4 +1,4 @@
-# 🎓 ExamPortal — Secure Online Examination System
+# 🎓 NCE Club Pass — Secure Examination & Entry Portal
 
 A lightweight, high-performance objective examination portal built with **React**, **Vite**, and modern **CSS design tokens**. Designed to handle large concurrent student exams with rigorous anti-cheating security features and comprehensive admin management.
 

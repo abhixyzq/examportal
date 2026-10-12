@@ -1,4 +1,4 @@
--- Schema for Exam Portal (PostgreSQL)
+-- Schema for NCE Club Pass (PostgreSQL)
 -- Optimized for high concurrent read/writes during exams
 
 CREATE TABLE IF NOT EXISTS users (

@@ -99,7 +99,7 @@ export function Login() {
       <div className="login-box">
         <div className="flex-between mb-1" style={{ alignItems: 'flex-start' }}>
           <div>
-            <div className="login-title">Exam<span style={{ color: 'var(--primary)' }}>Portal</span></div>
+            <div className="login-title">NCE Club <span style={{ color: 'var(--primary)' }}>Pass</span></div>
             <div className="login-sub" style={{ marginBottom: 20 }}>
               {role === 'student' ? 'Candidate Exam Verification' : 'Invigilator & Admin Sign In'}
             </div>
@@ -178,7 +178,7 @@ export function Login() {
           )}
 
           <button className="btn btn-primary w-full" type="submit" disabled={loading} style={{ height: 42 }}>
-            {loading ? 'Verifying...' : (role === 'student' ? 'Verify & Enter Exam Portal' : 'Sign In')}
+            {loading ? 'Verifying...' : (role === 'student' ? 'Verify & Enter NCE Club Pass' : 'Sign In')}
           </button>
         </form>
       </div>

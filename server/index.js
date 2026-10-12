@@ -48,7 +48,7 @@ app.get('/health', (_req, res) => {
   res.json({
     status: 'online',
     timestamp: new Date().toISOString(),
-    service: 'Exam Portal Backend',
+    service: 'NCE Club Pass Backend',
     version: '1.0.0',
   });
 });
@@ -71,6 +71,6 @@ app.use((err, _req, res, _next) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`🚀 Exam Portal Server running on http://localhost:${PORT}`);
+  console.log(`🚀 NCE Club Pass Server running on http://localhost:${PORT}`);
   console.log(`📡 Socket.io Real-Time Proctoring ready`);
 });

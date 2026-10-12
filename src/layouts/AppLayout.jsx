@@ -59,7 +59,7 @@ export default function AppLayout() {
           {mobileMenuOpen ? <CloseIcon size={18} /> : <MenuIcon size={18} />}
         </button>
         <div className="mobile-logo">
-          Exam<span>Portal</span>
+          NCE Club <span>Pass</span>
         </div>
         <div className="mobile-actions">
           <ThemeToggle showLabel={false} />
@@ -79,7 +79,7 @@ export default function AppLayout() {
       <aside className={`sidebar ${mobileMenuOpen ? 'open' : ''}`}>
         <div className="sidebar-header-row">
           <div className="sidebar-logo">
-            Exam<span>Portal</span>
+            NCE Club <span>Pass</span>
           </div>
           <button
             type="button"

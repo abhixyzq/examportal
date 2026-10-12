@@ -29,7 +29,7 @@ app.get('/api/health', (_req, res) => {
     status: 'online',
     platform: 'Vercel Serverless',
     timestamp: new Date().toISOString(),
-    service: 'Exam Portal API',
+    service: 'NCE Club Pass API',
   });
 });
 
