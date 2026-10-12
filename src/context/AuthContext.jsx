@@ -16,6 +16,7 @@ export function AuthProvider({ children }) {
 
   const login = (userData, token) => {
     invalidateApiCache();
+    sessionStorage.clear();
     localStorage.setItem('ep_user', JSON.stringify(userData));
     localStorage.setItem('ep_token', token);
     setUser(userData);
@@ -23,6 +24,7 @@ export function AuthProvider({ children }) {
 
   const logout = () => {
     invalidateApiCache();
+    sessionStorage.clear();
     localStorage.removeItem('ep_user');
     localStorage.removeItem('ep_token');
     setUser(null);

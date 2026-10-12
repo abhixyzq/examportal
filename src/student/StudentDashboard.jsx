@@ -25,6 +25,7 @@ export default function StudentDashboard() {
   const [codeModalExam, setCodeModalExam] = useState(null);
   const [enteredCode, setEnteredCode] = useState('');
   const [codeError, setCodeError] = useState('');
+  const [verifyingCode, setVerifyingCode] = useState(false);
 
   const isExamSubmitted = (examId) => {
     return mySubmissions.some(s => Number(s.exam_id) === Number(examId));
@@ -41,7 +42,9 @@ export default function StudentDashboard() {
       return;
     }
 
-    if (exam.requireCode) {
+    const requiresCode = Boolean(exam.require_code || exam.requireCode);
+
+    if (requiresCode) {
       // Check if already authenticated this session
       const isAuth = sessionStorage.getItem(`ep_exam_auth_${exam.id}`) === 'true';
       if (isAuth) {
@@ -56,20 +59,28 @@ export default function StudentDashboard() {
     }
   };
 
-  const handleVerifyCode = (e) => {
+  const handleVerifyCode = async (e) => {
     e.preventDefault();
-    if (!codeModalExam) return;
+    if (!codeModalExam || verifyingCode) return;
 
-    const targetCode = (codeModalExam.accessCode || '').trim().toUpperCase();
     const inputCode = enteredCode.trim().toUpperCase();
+    if (!inputCode) {
+      setCodeError('Please enter the Hall Access Code.');
+      return;
+    }
 
-    if (inputCode === targetCode) {
+    try {
+      setVerifyingCode(true);
+      setCodeError('');
+      await api.verifyExamCode(codeModalExam.id, inputCode);
       sessionStorage.setItem(`ep_exam_auth_${codeModalExam.id}`, 'true');
       const examId = codeModalExam.id;
       setCodeModalExam(null);
       navigate(`/student/exam/${examId}`);
-    } else {
-      setCodeError('Invalid access code. Please check with your invigilator in the exam hall.');
+    } catch (err) {
+      setCodeError(err.message || 'Invalid access code. Please check with your invigilator in the exam hall.');
+    } finally {
+      setVerifyingCode(false);
     }
   };
 
@@ -109,7 +120,7 @@ export default function StudentDashboard() {
                 </div>
               </div>
             <div className="flex gap-2 exam-card-actions" style={{ alignItems: 'center', flexWrap: 'wrap' }}>
-              {exam.requireCode && (
+              {Boolean(exam.require_code || exam.requireCode) && (
                 <span className="badge badge-yellow" style={{ fontSize: 11, gap: 4 }}>
                   <LockIcon size={11} /> Code Protected
                 </span>
@@ -202,8 +213,13 @@ export default function StudentDashboard() {
               )}
 
               <div className="flex gap-2">
-                <button type="submit" className="btn btn-primary w-full" style={{ justifyContent: 'center' }}>
-                  Verify & Enter
+                <button
+                  type="submit"
+                  className="btn btn-primary w-full"
+                  disabled={verifyingCode}
+                  style={{ justifyContent: 'center' }}
+                >
+                  {verifyingCode ? 'Verifying Code...' : 'Verify & Enter'}
                 </button>
                 <button
                   type="button"

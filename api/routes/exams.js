@@ -5,9 +5,22 @@ import { authenticate, requireAdmin } from '../middleware/auth.js';
 const router = Router();
 
 function sanitizeExam(exam, isAdmin) {
-  if (isAdmin || !exam) return exam;
+  if (!exam) return exam;
+  const hasAccessCode = Boolean(exam.access_code && String(exam.access_code).trim().length > 0);
+  const reqCode = Boolean(exam.require_code || exam.requireCode || hasAccessCode);
+  if (isAdmin) {
+    return {
+      ...exam,
+      require_code: reqCode,
+      requireCode: reqCode,
+    };
+  }
   const { access_code, accessCode, ...safe } = exam;
-  return safe;
+  return {
+    ...safe,
+    require_code: reqCode,
+    requireCode: reqCode,
+  };
 }
 
 // ── GET /api/exams ────────────────────────────────────────────────────────────
@@ -122,7 +135,10 @@ router.post('/:id/verify-code', authenticate, async (req, res) => {
       return res.status(404).json({ error: 'Exam not found' });
     }
 
-    if (!exam.require_code) {
+    const hasAccessCode = Boolean(exam.access_code || exam.accessCode);
+    const requiresCode = Boolean(exam.require_code || exam.requireCode || hasAccessCode);
+
+    if (!requiresCode) {
       return res.json({ valid: true, message: 'No passcode required' });
     }
 
@@ -170,11 +186,12 @@ router.patch('/:id/toggle-code', authenticate, requireAdmin, async (req, res) =>
       const existing = await db.query('SELECT require_code, access_code FROM exams WHERE id = $1', [examId]);
       if (existing.rows.length === 0) return res.status(404).json({ error: 'Exam not found' });
       const current = existing.rows[0];
-      const newRequireCode = !current.require_code;
+      let newRequireCode = !current.require_code;
       let newAccessCode = current.access_code || '';
 
-      if (customCode) {
+      if (customCode !== undefined) {
         newAccessCode = String(customCode).trim().toUpperCase();
+        newRequireCode = Boolean(newAccessCode);
       } else if (newRequireCode && (!newAccessCode || !newAccessCode.trim())) {
         newAccessCode = Math.random().toString(36).substring(2, 8).toUpperCase();
       }
@@ -187,15 +204,17 @@ router.patch('/:id/toggle-code', authenticate, requireAdmin, async (req, res) =>
     }
     const exam = (db.store.exams || []).find(e => e.id === examId);
     if (!exam) return res.status(404).json({ error: 'Exam not found' });
-    exam.require_code = !exam.require_code;
-    exam.requireCode = exam.require_code;
-    if (customCode) {
+    if (customCode !== undefined) {
       exam.access_code = String(customCode).trim().toUpperCase();
-      exam.accessCode = exam.access_code;
-    } else if (exam.require_code && (!exam.access_code || !exam.access_code.trim())) {
-      exam.access_code = Math.random().toString(36).substring(2, 8).toUpperCase();
-      exam.accessCode = exam.access_code;
+      exam.require_code = Boolean(exam.access_code);
+    } else {
+      exam.require_code = !exam.require_code;
+      if (exam.require_code && (!exam.access_code || !exam.access_code.trim())) {
+        exam.access_code = Math.random().toString(36).substring(2, 8).toUpperCase();
+      }
     }
+    exam.requireCode = exam.require_code;
+    exam.accessCode = exam.access_code;
     res.json(exam);
   } catch (err) {
     console.error('Toggle require code error:', err);

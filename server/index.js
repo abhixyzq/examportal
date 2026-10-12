@@ -11,6 +11,7 @@ import submissionRoutes from './routes/submissions.js';
 import candidateRoutes from './routes/candidates.js';
 import { setupMonitorSockets } from './sockets/monitor.js';
 
+dotenv.config({ path: '.env.local' });
 dotenv.config();
 
 const app = express();

@@ -30,6 +30,7 @@ export default function ExamRoom() {
   const [showMobileNav, setShowMobileNav] = useState(false);
   const [alreadySubmitted, setAlreadySubmitted] = useState(false);
   const [hasStarted, setHasStarted] = useState(false);
+  const [examLoading, setExamLoading] = useState(true);
   const [current, setCurrent] = useState(0);
   const [answers, setAnswers] = useState({});
   const [secondsLeft, setSecondsLeft] = useState(3600);
@@ -54,6 +55,9 @@ export default function ExamRoom() {
       if (found?.duration_mins || found?.duration) {
         setSecondsLeft((found.duration_mins || found.duration) * 60);
       }
+      setExamLoading(false);
+    }).catch(() => {
+      setExamLoading(false);
     });
   }, [id]);
 
@@ -62,6 +66,7 @@ export default function ExamRoom() {
   const [codeVerified, setCodeVerified] = useState(() => {
     return sessionStorage.getItem(`ep_exam_auth_${id}`) === 'true';
   });
+  const [verifyingCode, setVerifyingCode] = useState(false);
   const [inputCode, setInputCode] = useState('');
   const [codeError, setCodeError] = useState('');
 
@@ -78,6 +83,7 @@ export default function ExamRoom() {
     } catch (err) {
       console.error('Auto-submit error:', err);
     }
+    sessionStorage.removeItem(`ep_exam_auth_${currentExam?.id || id}`);
     const isLive = subRes?.live_result ?? (currentExam?.live_result ?? currentExam?.liveResult ?? false);
     navigate('/student/result', {
       state: {
@@ -295,6 +301,7 @@ export default function ExamRoom() {
       return;
     }
 
+    sessionStorage.removeItem(`ep_exam_auth_${currentExam?.id || id}`);
     const isLive = subRes?.live_result ?? (currentExam?.live_result ?? currentExam?.liveResult ?? false);
     navigate('/student/result', {
       state: {
@@ -316,6 +323,8 @@ export default function ExamRoom() {
         return;
       }
       try {
+        setVerifyingCode(true);
+        setCodeError('');
         await api.verifyExamCode(currentExam?.id || id, entered);
         sessionStorage.setItem(`ep_exam_auth_${currentExam?.id || id}`, 'true');
         setCodeVerified(true);
@@ -324,6 +333,8 @@ export default function ExamRoom() {
         setHasStarted(true);
       } catch (err) {
         setCodeError(err.message || 'Invalid Hall Access Code! Please ask your exam invigilator.');
+      } finally {
+        setVerifyingCode(false);
       }
     } else {
       await enterFullscreen();
@@ -341,8 +352,21 @@ export default function ExamRoom() {
 
   return (
     <>
+      {/* 0. Exam Loading Gate */}
+      {examLoading && (
+        <div className="violation-overlay">
+          <div className="violation-box" style={{ maxWidth: 400, textAlign: 'center', padding: '32px 20px' }}>
+            <div style={{ color: 'var(--primary)', marginBottom: 16 }}>
+              <ClockIcon size={32} />
+            </div>
+            <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 8 }}>Loading Exam Details...</div>
+            <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Please wait while we verify your session.</div>
+          </div>
+        </div>
+      )}
+
       {/* 0. Already Submitted Block Gate */}
-      {alreadySubmitted && (
+      {!examLoading && alreadySubmitted && (
         <div className="violation-overlay">
           <div className="violation-box" style={{ maxWidth: 420 }}>
             <div style={{ color: 'var(--warning)', display: 'flex', justifyContent: 'center', marginBottom: 12 }}>
@@ -367,7 +391,7 @@ export default function ExamRoom() {
       )}
 
       {/* 1. Mandatory Proctored Exam Instructions Gate */}
-      {!hasStarted && !alreadySubmitted && (
+      {!examLoading && !hasStarted && !alreadySubmitted && (
         <div className="violation-overlay">
           <div className="violation-box" style={{ maxWidth: 440, textAlign: 'left' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
@@ -427,9 +451,10 @@ export default function ExamRoom() {
                 <button
                   type="submit"
                   className="btn btn-primary w-full"
+                  disabled={verifyingCode}
                   style={{ padding: '10px 16px', fontSize: 14, justifyContent: 'center' }}
                 >
-                  Verify Code & Start Exam
+                  {verifyingCode ? 'Verifying Code...' : 'Verify Code & Start Exam'}
                 </button>
               </form>
             ) : (
