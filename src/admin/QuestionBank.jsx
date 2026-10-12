@@ -248,11 +248,19 @@ export default function QuestionBank() {
         return;
       }
 
-      await api.bulkAddQuestions(parsed, bulkExamId ? Number(bulkExamId) : null);
+      const result = await api.bulkAddQuestions(parsed, bulkExamId ? Number(bulkExamId) : null);
       await loadData();
       setShowBulkModal(false);
       setBulkText('');
-      alert(`Successfully imported ${parsed.length} questions!`);
+      const serverCount = result?.count ?? parsed.length;
+      const serverSkipped = result?.skipped ?? [];
+      let msg = `Successfully imported ${serverCount} questions!`;
+      if (serverSkipped.length > 0) {
+        msg += `\n\n⚠️ ${serverSkipped.length} skipped:\n` +
+          serverSkipped.map(s => `• ${s.text} — ${s.reason}`).join('\n');
+      }
+      alert(msg);
+
     } catch (err) {
       alert('Bulk import failed: ' + (err.message || 'Unknown error'));
     } finally {

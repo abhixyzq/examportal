@@ -158,10 +158,17 @@ router.post('/bulk', authenticate, requireAdmin, async (req, res) => {
 
     // Filter and sanitize all input items
     const validQuestions = [];
+    const skipped = [];
     for (const q of questions) {
-      if (!q.text || !String(q.text).trim()) continue;
+      if (!q.text || !String(q.text).trim()) {
+        skipped.push({ text: q.text, reason: 'Empty question text' });
+        continue;
+      }
       const optionsList = normalizeOptions(q.options, q.optA || q.opt_a, q.optB || q.opt_b, q.optC || q.opt_c, q.optD || q.opt_d);
-      if (optionsList.length < 2) continue;
+      if (optionsList.length < 2) {
+        skipped.push({ text: String(q.text).substring(0, 60), reason: `Only ${optionsList.length} option(s) found` });
+        continue;
+      }
       const correctStr = normalizeCorrect(q.correct) || 'A';
       const itemExamId = (q.exam_id || q.examId) ? Number(q.exam_id || q.examId) : defaultExamId;
 
@@ -179,22 +186,21 @@ router.post('/bulk', authenticate, requireAdmin, async (req, res) => {
     }
 
     if (validQuestions.length === 0) {
-      return res.status(400).json({ error: 'No valid questions found in import list' });
+      return res.status(400).json({ error: 'No valid questions found in import list', skipped });
     }
 
     if (db.isPostgres()) {
-      // High-speed batch insert in chunks of 50
       const inserted = [];
-      const CHUNK_SIZE = 50;
-      for (let i = 0; i < validQuestions.length; i += CHUNK_SIZE) {
-        const chunk = validQuestions.slice(i, i + CHUNK_SIZE);
-        const valueClauses = [];
-        const params = [];
-        let pIdx = 1;
-
-        for (const item of chunk) {
-          valueClauses.push(`($${pIdx}, $${pIdx + 1}, $${pIdx + 2}, $${pIdx + 3}, $${pIdx + 4}, $${pIdx + 5}, $${pIdx + 6}, $${pIdx + 7}, $${pIdx + 8})`);
-          params.push(
+      const dbSkipped = [];
+      // Insert row-by-row so one bad row doesn't kill the whole batch
+      for (const item of validQuestions) {
+        try {
+          const query = `
+            INSERT INTO questions (exam_id, text, options, opt_a, opt_b, opt_c, opt_d, correct, subject)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+            RETURNING *
+          `;
+          const { rows } = await db.query(query, [
             item.exam_id,
             item.text,
             JSON.stringify(item.options),
@@ -204,19 +210,18 @@ router.post('/bulk', authenticate, requireAdmin, async (req, res) => {
             item.opt_d,
             item.correct,
             item.subject
-          );
-          pIdx += 9;
+          ]);
+          inserted.push(...rows.map(formatQuestion));
+        } catch (rowErr) {
+          console.error('Row insert failed:', rowErr.message, '| text:', item.text.substring(0, 60));
+          dbSkipped.push({ text: item.text.substring(0, 60), reason: rowErr.message });
         }
-
-        const query = `
-          INSERT INTO questions (exam_id, text, options, opt_a, opt_b, opt_c, opt_d, correct, subject)
-          VALUES ${valueClauses.join(', ')}
-          RETURNING *
-        `;
-        const { rows } = await db.query(query, params);
-        inserted.push(...rows.map(formatQuestion));
       }
-      return res.status(201).json({ count: inserted.length, questions: inserted });
+      return res.status(201).json({
+        count: inserted.length,
+        questions: inserted,
+        skipped: [...skipped, ...dbSkipped]
+      });
     }
 
     const now = Date.now();
@@ -235,7 +240,7 @@ router.post('/bulk', authenticate, requireAdmin, async (req, res) => {
 
     if (!db.store.questions) db.store.questions = [];
     db.store.questions.unshift(...added);
-    res.status(201).json({ count: added.length, questions: added.map(formatQuestion) });
+    res.status(201).json({ count: added.length, questions: added.map(formatQuestion), skipped });
   } catch (err) {
     console.error('Bulk questions import error:', err);
     res.status(500).json({ error: 'Failed to import questions' });
