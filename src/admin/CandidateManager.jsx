@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { api } from '../services/api';
 import { PlusIcon, TrashIcon, UploadIcon, CloseIcon } from '../components/Icons';
 
@@ -23,7 +23,7 @@ export default function CandidateManager() {
   const [bulkExamId, setBulkExamId] = useState('');
 
   // Fetch candidates & exams
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setLoading(true);
     try {
       const [candRes, examRes] = await Promise.all([
@@ -36,11 +36,11 @@ export default function CandidateManager() {
       // Fallback
     }
     setLoading(false);
-  };
+  }, [selectedExam]);
 
   useEffect(() => {
     loadData();
-  }, [selectedExam]);
+  }, [loadData]);
 
   const handleAddSingle = async (e) => {
     e.preventDefault();

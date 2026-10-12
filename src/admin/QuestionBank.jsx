@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api } from '../services/api';
 import { PlusIcon, CloseIcon, TrashIcon, UploadIcon, ExamsIcon } from '../components/Icons';
@@ -33,7 +33,7 @@ export default function QuestionBank() {
 
   const [form, setForm] = useState(() => getEmptyForm(initialExamId));
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       const [qData, exData] = await Promise.all([
         api.getQuestions(),
@@ -46,11 +46,11 @@ export default function QuestionBank() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [loadData]);
 
   useEffect(() => {
     const pId = searchParams.get('examId');
@@ -59,7 +59,8 @@ export default function QuestionBank() {
       setBulkExamId(pId);
       setForm(prev => ({ ...prev, exam_id: pId }));
     }
-  }, [searchParams]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams.get('examId')]);
 
   const handleExamFilterChange = (newExamId) => {
     setSelectedExam(newExamId);
