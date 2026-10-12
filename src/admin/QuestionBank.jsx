@@ -203,26 +203,27 @@ export default function QuestionBank() {
       const parsed = [];
 
       for (const line of lines) {
-        if (line.toLowerCase().startsWith('question') || line.toLowerCase().startsWith('text')) continue;
-        
-        // Split by semicolon, pipe, or comma
+        // Skip header lines
+        if (/^(question|text|q\.?no)/i.test(line)) continue;
+
+        // Split by pipe first, then semicolon, then comma
         let separator = ',';
         if (line.includes('|')) separator = '|';
         else if (line.includes(';')) separator = ';';
 
-        const parts = line.split(separator).map(p => p.trim()).filter(Boolean);
+        const parts = line.split(separator).map(p => p.trim()).filter(p => p !== '');
         if (parts.length >= 3) {
-          // Format: QuestionText, Opt1, Opt2, ..., CorrectAnswers
-          // The last element is correct answers (e.g. "A" or "A,C" or "A;B")
+          // Strict: correct answer field is ONLY letters A-D optionally separated by commas
+          // e.g. "A", "B", "C", "D", "A,C", "A,B,D" — nothing else
           const lastPart = parts[parts.length - 1];
-          const isCorrectField = /^[A-Z,\s;]+$/i.test(lastPart);
+          const isCorrectField = /^[A-D]([,;][A-D])*$/i.test(lastPart.trim());
 
           let correctVal = 'A';
           let optionsList = [];
           const text = parts[0];
 
           if (isCorrectField) {
-            correctVal = lastPart.replace(/;/g, ',').toUpperCase();
+            correctVal = lastPart.trim().replace(/;/g, ',').toUpperCase();
             optionsList = parts.slice(1, parts.length - 1);
           } else {
             optionsList = parts.slice(1);
