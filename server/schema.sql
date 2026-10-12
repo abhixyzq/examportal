@@ -1,5 +1,6 @@
 -- Schema for NCE Club Pass (PostgreSQL)
 -- Optimized for high concurrent read/writes during exams
+-- Table order matters: referenced tables must be created before tables that reference them.
 
 CREATE TABLE IF NOT EXISTS users (
   id SERIAL PRIMARY KEY,
@@ -13,23 +14,7 @@ CREATE TABLE IF NOT EXISTS users (
 
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 
-CREATE TABLE IF NOT EXISTS questions (
-  id SERIAL PRIMARY KEY,
-  exam_id INT REFERENCES exams(id) ON DELETE CASCADE,
-  text TEXT NOT NULL,
-  options JSONB DEFAULT '[]'::jsonb,
-  opt_a TEXT,
-  opt_b TEXT,
-  opt_c TEXT,
-  opt_d TEXT,
-  correct VARCHAR(100) NOT NULL,
-  subject VARCHAR(100) DEFAULT 'General',
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE INDEX IF NOT EXISTS idx_questions_exam_id ON questions(exam_id);
-CREATE INDEX IF NOT EXISTS idx_questions_subject ON questions(subject);
-
+-- exams must be created BEFORE questions (questions.exam_id references exams.id)
 CREATE TABLE IF NOT EXISTS exams (
   id SERIAL PRIMARY KEY,
   title VARCHAR(200) NOT NULL,
@@ -50,6 +35,23 @@ CREATE TABLE IF NOT EXISTS exams (
 );
 
 CREATE INDEX IF NOT EXISTS idx_exams_status ON exams(status);
+
+CREATE TABLE IF NOT EXISTS questions (
+  id SERIAL PRIMARY KEY,
+  exam_id INT REFERENCES exams(id) ON DELETE CASCADE,
+  text TEXT NOT NULL,
+  options JSONB DEFAULT '[]'::jsonb,
+  opt_a TEXT,
+  opt_b TEXT,
+  opt_c TEXT,
+  opt_d TEXT,
+  correct VARCHAR(100) NOT NULL,
+  subject VARCHAR(100) DEFAULT 'General',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_questions_exam_id ON questions(exam_id);
+CREATE INDEX IF NOT EXISTS idx_questions_subject ON questions(subject);
 
 CREATE TABLE IF NOT EXISTS exam_submissions (
   id SERIAL PRIMARY KEY,
@@ -80,3 +82,14 @@ CREATE TABLE IF NOT EXISTS violations_log (
 );
 
 CREATE INDEX IF NOT EXISTS idx_violations_exam_user ON violations_log(exam_id, user_id);
+
+CREATE TABLE IF NOT EXISTS candidates (
+  id SERIAL PRIMARY KEY,
+  exam_id INT REFERENCES exams(id) ON DELETE CASCADE,
+  name VARCHAR(100) NOT NULL,
+  email VARCHAR(150),
+  roll_no VARCHAR(50),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_candidates_exam_id ON candidates(exam_id);
