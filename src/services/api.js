@@ -113,8 +113,9 @@ export const api = {
   toggleLiveResult: async (id) => request(`/exams/${id}/toggle-result`, {
     method: 'PATCH',
   }),
-  toggleRequireCode: async (id) => request(`/exams/${id}/toggle-code`, {
+  toggleRequireCode: async (id, payload = {}) => request(`/exams/${id}/toggle-code`, {
     method: 'PATCH',
+    body: JSON.stringify(payload),
   }),
   deleteExam: async (id) => request(`/exams/${id}`, {
     method: 'DELETE',

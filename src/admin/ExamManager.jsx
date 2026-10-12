@@ -56,9 +56,19 @@ export default function ExamManager() {
     const finalCode = form.requireCode ? (form.accessCode.trim() || generateRandomCode()) : '';
     const newExam = {
       ...form,
+      access_code: finalCode,
       accessCode: finalCode,
+      require_code: Boolean(form.requireCode),
+      requireCode: Boolean(form.requireCode),
       duration_mins: form.duration,
+      duration: form.duration,
       total_questions: form.total,
+      total: form.total,
+      live_result: Boolean(form.liveResult),
+      liveResult: Boolean(form.liveResult),
+      shuffle_q: Boolean(form.shuffleQ),
+      shuffle_opt: Boolean(form.shuffleOpt),
+      max_violations: Number(form.maxViolations),
     };
 
     try {
@@ -85,7 +95,7 @@ export default function ExamManager() {
     try {
       const updated = await api.toggleLiveResult(id);
       if (updated?.id) {
-        setExams(prev => prev.map(e => e.id === id ? { ...e, live_result: updated.live_result } : e));
+        setExams(prev => prev.map(e => e.id === id ? { ...e, live_result: updated.live_result, liveResult: updated.live_result } : e));
       }
     } catch {}
   };
@@ -94,9 +104,42 @@ export default function ExamManager() {
     try {
       const updated = await api.toggleRequireCode(id);
       if (updated?.id) {
-        setExams(prev => prev.map(e => e.id === id ? { ...e, require_code: updated.require_code } : e));
+        setExams(prev => prev.map(e => e.id === id ? {
+          ...e,
+          require_code: updated.require_code,
+          requireCode: updated.require_code,
+          access_code: updated.access_code,
+          accessCode: updated.access_code,
+        } : e));
       }
-    } catch {}
+    } catch (err) {
+      alert('Failed to update access code setting: ' + (err.message || 'Error'));
+    }
+  };
+
+  const handleEditCode = async (exam) => {
+    const currentCode = exam.access_code || exam.accessCode || '';
+    const newCode = window.prompt('Enter Exam Hall Access Code (e.g. CLUB26):', currentCode);
+    if (newCode === null) return;
+    const cleanCode = newCode.trim().toUpperCase();
+    if (!cleanCode) {
+      alert('Access Code cannot be empty.');
+      return;
+    }
+    try {
+      const updated = await api.toggleRequireCode(exam.id, { access_code: cleanCode });
+      if (updated?.id) {
+        setExams(prev => prev.map(e => e.id === exam.id ? {
+          ...e,
+          require_code: true,
+          requireCode: true,
+          access_code: updated.access_code,
+          accessCode: updated.access_code,
+        } : e));
+      }
+    } catch (err) {
+      alert('Failed to update access code: ' + (err.message || 'Error'));
+    }
   };
 
   return (
@@ -269,8 +312,13 @@ export default function ExamManager() {
                   <td>
                     {(exam.require_code || exam.requireCode) ? (
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <span className="badge badge-yellow" style={{ fontFamily: 'monospace', letterSpacing: 1, fontWeight: 700, gap: 5 }}>
-                          <LockIcon size={11} /> {exam.access_code || exam.accessCode}
+                        <span
+                          className="badge badge-yellow"
+                          style={{ fontFamily: 'monospace', letterSpacing: 1, fontWeight: 700, gap: 5, cursor: 'pointer' }}
+                          title="Click to edit/change access code"
+                          onClick={() => handleEditCode(exam)}
+                        >
+                          <LockIcon size={11} /> {exam.access_code || exam.accessCode} ✏️
                         </span>
                         <button
                           type="button"
@@ -287,7 +335,8 @@ export default function ExamManager() {
                         type="button"
                         className="btn btn-ghost btn-sm"
                         style={{ padding: '2px 8px', fontSize: 11 }}
-                        onClick={() => toggleRequireCode(exam.id)}
+                        title="Require Hall Access Code"
+                        onClick={() => handleEditCode(exam)}
                       >
                         + Add Code
                       </button>

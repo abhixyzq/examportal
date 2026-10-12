@@ -311,15 +311,19 @@ export default function ExamRoom() {
     if (e) e.preventDefault();
     if (requiresCode && !codeVerified) {
       const entered = inputCode.trim().toUpperCase();
-      const target = (currentExam?.accessCode || '').trim().toUpperCase();
-      if (entered === target) {
-        sessionStorage.setItem(`ep_exam_auth_${currentExam?.id}`, 'true');
+      if (!entered) {
+        setCodeError('Please enter the Hall Access Code.');
+        return;
+      }
+      try {
+        await api.verifyExamCode(currentExam?.id || id, entered);
+        sessionStorage.setItem(`ep_exam_auth_${currentExam?.id || id}`, 'true');
         setCodeVerified(true);
         setCodeError('');
         await enterFullscreen();
         setHasStarted(true);
-      } else {
-        setCodeError('Invalid Hall Access Code! Please ask your exam invigilator.');
+      } catch (err) {
+        setCodeError(err.message || 'Invalid Hall Access Code! Please ask your exam invigilator.');
       }
     } else {
       await enterFullscreen();

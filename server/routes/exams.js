@@ -40,7 +40,18 @@ router.post('/', authenticate, requireAdmin, async (req, res) => {
       return res.status(400).json({ error: 'Title, date, and time are required' });
     }
 
-    const cleanAccessCode = String(access_code || '').trim().toUpperCase();
+    const rawReqCode = req.body.require_code !== undefined ? req.body.require_code : req.body.requireCode;
+    const rawAccCode = req.body.access_code || req.body.accessCode || '';
+    const cleanAccessCode = String(rawAccCode).trim().toUpperCase();
+    const finalRequireCode = Boolean(rawReqCode !== undefined ? rawReqCode : Boolean(cleanAccessCode));
+
+    const finalDuration = Number(req.body.duration_mins || req.body.duration || 60);
+    const finalTotal = Number(req.body.total_questions || req.body.total || 20);
+    const finalProctored = Boolean(req.body.proctored ?? true);
+    const finalLiveResult = Boolean(req.body.live_result ?? req.body.liveResult ?? false);
+    const finalShuffleQ = Boolean(req.body.shuffle_q ?? req.body.shuffleQ ?? true);
+    const finalShuffleOpt = Boolean(req.body.shuffle_opt ?? req.body.shuffleOpt ?? false);
+    const finalMaxViolations = Number(req.body.max_violations ?? req.body.maxViolations ?? 3);
 
     if (db.isPostgres()) {
       const q = `
@@ -49,9 +60,9 @@ router.post('/', authenticate, requireAdmin, async (req, res) => {
         RETURNING *
       `;
       const { rows } = await db.query(q, [
-        title, subject || 'General', Number(duration_mins), Number(total_questions),
-        date, time, Boolean(proctored), Boolean(live_result), Boolean(shuffle_q), Boolean(shuffle_opt),
-        Number(max_violations), Boolean(require_code), cleanAccessCode
+        title, subject || 'General', finalDuration, finalTotal,
+        date, time, finalProctored, finalLiveResult, finalShuffleQ, finalShuffleOpt,
+        finalMaxViolations, finalRequireCode, cleanAccessCode
       ]);
       return res.status(201).json(rows[0]);
     }
@@ -60,18 +71,23 @@ router.post('/', authenticate, requireAdmin, async (req, res) => {
       id: Date.now(),
       title,
       subject: subject || 'General',
-      duration_mins: Number(duration_mins),
-      total_questions: Number(total_questions),
+      duration_mins: finalDuration,
+      duration: finalDuration,
+      total_questions: finalTotal,
+      total: finalTotal,
       date,
       time,
       status: 'active',
-      proctored: Boolean(proctored),
-      live_result: Boolean(live_result),
-      shuffle_q: Boolean(shuffle_q),
-      shuffle_opt: Boolean(shuffle_opt),
-      max_violations: Number(max_violations),
-      require_code: Boolean(require_code),
+      proctored: finalProctored,
+      live_result: finalLiveResult,
+      liveResult: finalLiveResult,
+      shuffle_q: finalShuffleQ,
+      shuffle_opt: finalShuffleOpt,
+      max_violations: finalMaxViolations,
+      require_code: finalRequireCode,
+      requireCode: finalRequireCode,
       access_code: cleanAccessCode,
+      accessCode: cleanAccessCode,
     };
 
     if (!db.store.exams) db.store.exams = [];
@@ -143,13 +159,38 @@ router.patch('/:id/toggle-result', authenticate, requireAdmin, async (req, res) 
 router.patch('/:id/toggle-code', authenticate, requireAdmin, async (req, res) => {
   try {
     const examId = Number(req.params.id);
+    const customCode = req.body?.access_code || req.body?.accessCode;
+
     if (db.isPostgres()) {
-      const { rows } = await db.query('UPDATE exams SET require_code = NOT require_code WHERE id = $1 RETURNING *', [examId]);
+      const existing = await db.query('SELECT require_code, access_code FROM exams WHERE id = $1', [examId]);
+      if (existing.rows.length === 0) return res.status(404).json({ error: 'Exam not found' });
+      const current = existing.rows[0];
+      const newRequireCode = !current.require_code;
+      let newAccessCode = current.access_code || '';
+
+      if (customCode) {
+        newAccessCode = String(customCode).trim().toUpperCase();
+      } else if (newRequireCode && (!newAccessCode || !newAccessCode.trim())) {
+        newAccessCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+      }
+
+      const { rows } = await db.query(
+        'UPDATE exams SET require_code = $1, access_code = $2 WHERE id = $3 RETURNING *',
+        [newRequireCode, newAccessCode, examId]
+      );
       return res.json(rows[0]);
     }
     const exam = (db.store.exams || []).find(e => e.id === examId);
     if (!exam) return res.status(404).json({ error: 'Exam not found' });
     exam.require_code = !exam.require_code;
+    exam.requireCode = exam.require_code;
+    if (customCode) {
+      exam.access_code = String(customCode).trim().toUpperCase();
+      exam.accessCode = exam.access_code;
+    } else if (exam.require_code && (!exam.access_code || !exam.access_code.trim())) {
+      exam.access_code = Math.random().toString(36).substring(2, 8).toUpperCase();
+      exam.accessCode = exam.access_code;
+    }
     saveLocalStore();
     res.json(exam);
   } catch (err) {
