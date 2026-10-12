@@ -1,0 +1,20 @@
+Aman is working on Ubuntu. He compiles his file using the command gcc prog.c (without the -o option). What will be the name of the executable file created?|prog.exe|a.out|prog.o|a.exe|B
+Priya wrote the following code. Predict the output. int a = 10, b = 3; printf("%d %d", a / b, a % b);|3.33 1|3 3|3 1|1 3|C
+Rahul wrote this code. What are the values printed for x and y? int x = 5; int y = x++ * 2; printf("%d %d", x, y);|6 10|5 10|6 12|5 12|A
+Sneha printed a character and the value after adding 1 to it. Predict the output. (ASCII value of 'A' is 65) char c = 'A'; printf("%d %c", c + 1, c + 1);|A B|66 B|66 66|B 66|B
+Karan used continue and break inside a loop. What will be printed? int i; for (i = 0; i < 10; i++) { if (i % 3 == 0) continue; if (i > 7) break; printf("%d ", i); }|1 2 4 5 7 8|1 2 4 5 7|1 2 4 5 6 7|1 2 3 4 5 6 7|B
+Meera expected 3.5 but the program prints something else. What will be printed? float f = 7 / 2; printf("%.1f", f);|3.0|3.5|3|4.0|A
+Vikram wrote nested if statements without braces. Predict the output. int a = 5; if (a > 3) if (a > 10) printf("X"); else printf("Y");|X|XY|No output|Y|D
+Neha wrote the following code to print a decimal number but the output is garbage. What is the mistake? float x = 3.5; printf("%d", x);|x should be declared as int|printf cannot print decimal numbers|A semicolon is missing|%d is the wrong format specifier for a float; %f should be used|D
+Arjun used the post-decrement operator in the loop condition. Predict the output. int n = 3; while (n--) printf("%d ", n);|3 2 1|2 1|2 1 0|3 2 1 0|C
+Pooja wrote the following expression. What will be printed? int a = 2, b = 3; printf("%d", a * b + a % b - b / a);|9|6|7|5|C
+Rohan printed a star pattern using nested loops. What is the output? int i, j; for (i = 1; i <= 3; i++) { for (j = 1; j <= i; j++) printf("*"); printf(" "); }|* ** ***|*** ** *|*** *** ***|* * *|A
+Which of the following can NOT be used as a variable name in C?|float|_total|marks_2|Sum|A
+Imran wrote a condition with logical operators. What will be the output? int x = 7; printf("%d", x > 5 && x < 10 || x == 0);|0|1|7|Error|B
+Kavya forgot to write break in some cases of a switch statement. Predict the output. int n = 4; switch (n) { case 1: printf("A"); case 4: printf("B"); case 5: printf("C"); break; default: printf("D"); }|B|BCD|C|BC|D
+Aditya wrote a loop that adds or subtracts numbers. Predict the output. int sum = 0, i; for (i = 1; i <= 5; i++) { if (i % 2 == 0) sum += i; else sum -= i; } printf("%d", sum);|3|-9|-3|6|C
+Simran wants to print the numbers from 10 down to 1 using a for loop. Which condition should replace the blank? for (i = 10; ________; i--) printf("%d ", i);|i > 1|i <= 1|i < 10|i >= 1|D
+Farhan used compound assignment operators. What will be printed? int a = 10; a += 5; a *= 2; a -= a / 5; printf("%d", a);|25|24|30|27|B
+Isha compared three numbers like in mathematics. What will be the output? printf("%d", 5 > 3 > 1);|0|1|3|Error|A
+Rohit pressed F9 in Dev-C++. The program compiled successfully but no output window appeared. Why?|The program has a syntax error|Dev-C++ cannot run C programs|F9 only compiles the program; F10 (Run) or F11 (Compile & Run) is needed to execute it|printf was not used in the program|C
+Tanvi wrote a do-while loop that doubles a value. Predict the output. int x = 1; do { printf("%d ", x); x *= 2; } while (x < 20);|1 2 4 8 16 32|2 4 8 16|1 2 4 8|1 2 4 8 16|D
